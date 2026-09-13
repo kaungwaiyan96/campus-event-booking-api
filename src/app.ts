@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import eventRoutes from './routes/event.routes';
 import bookingRoutes from './routes/booking.routes';
+import peerRoutes from './routes/peer.routes';
 import { authRoutes, userRoutes } from './routes/auth.routes';
 import { errorHandler } from './middlewares/error.middleware';
 
@@ -20,6 +21,7 @@ app.use('/events-api/v1/auth', authRoutes);
 app.use('/events-api/v1/users', userRoutes);
 
 // Member 2 Core domain routes
+app.use('/events-api/v1/events/active', peerRoutes);
 app.use('/events-api/v1/events', eventRoutes);
 app.use('/events-api/v1/bookings', bookingRoutes);
 
