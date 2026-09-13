@@ -19,6 +19,16 @@ export function errorHandler(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   next: NextFunction
 ) {
+  if (err instanceof SyntaxError && 'status' in err && (err as any).status === 400) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_JSON',
+        message: 'Malformed JSON payload provided in request body.',
+      },
+    });
+  }
+
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       success: false,

@@ -24,4 +24,5 @@ export interface EventQueryFilters {
   search?: string;
   upcoming?: string;
   venue?: string;
+  date?: string;
 }

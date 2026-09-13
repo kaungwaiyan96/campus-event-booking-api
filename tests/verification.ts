@@ -4,10 +4,18 @@ import http from 'http';
 
 async function runTests() {
   console.log('\n--- STARTING AUTOMATED INTEGRATION TESTS ---\n');
+
+  // Pre-cleanup of any prior test artifacts
+  await prisma.booking.deleteMany({ where: { student: { email: 'student2_test@campus.edu' } } });
+  await prisma.user.deleteMany({ where: { email: 'student2_test@campus.edu' } });
+
   const server = http.createServer(app);
 
   await new Promise<void>((resolve) => server.listen(5099, resolve));
   const baseUrl = 'http://localhost:5099/events-api/v1';
+
+  let eventId: string | undefined;
+  let student2Id: string | undefined;
 
   try {
     // 1. Fetch seed users
@@ -45,7 +53,7 @@ async function runTests() {
     }).then((r) => r.json());
 
     if (!createEventRes.success) throw new Error('Create event failed: ' + JSON.stringify(createEventRes));
-    const eventId = createEventRes.data.id;
+    eventId = createEventRes.data.id;
     console.log('✓ Organizer successfully created event with capacity 1.');
 
     // 4. Student 1 books the only seat
@@ -86,6 +94,7 @@ async function runTests() {
         role: 'STUDENT',
       },
     });
+    student2Id = student2.id;
 
     const fullRes: any = await fetch(`${baseUrl}/bookings`, {
       method: 'POST',
@@ -137,13 +146,60 @@ async function runTests() {
     }
     console.log('✓ Organizer attendee list correctly verified (1 confirmed attendee).');
 
-    // Cleanup test student 2 and test event
-    await prisma.booking.deleteMany({ where: { eventId } });
-    await prisma.event.delete({ where: { id: eventId } });
-    await prisma.user.delete({ where: { id: student2.id } });
+    // 10. 404 Catch-all verification
+    const notFoundRes: any = await fetch(`${baseUrl}/undefined-route-test`).then((r) => r.json());
+    if (notFoundRes.success || notFoundRes.error?.code !== 'NOT_FOUND') {
+      throw new Error('404 catch-all check failed: ' + JSON.stringify(notFoundRes));
+    }
+    console.log('✓ Catch-all 404 handler verified (NOT_FOUND).');
+
+    // 11. Malformed JSON syntax error verification
+    const badJsonRes: any = await fetch(`${baseUrl}/events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': organizer.id,
+      },
+      body: '{"invalidJson": ',
+    }).then((r) => r.json());
+    if (badJsonRes.success || badJsonRes.error?.code !== 'INVALID_JSON') {
+      throw new Error('Malformed JSON check failed: ' + JSON.stringify(badJsonRes));
+    }
+    console.log('✓ Malformed JSON parser error caught (INVALID_JSON).');
+
+    // 12. Capacity < 1 update validation
+    const invalidCapRes: any = await fetch(`${baseUrl}/events/${eventId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': organizer.id,
+      },
+      body: JSON.stringify({ capacity: 0 }),
+    }).then((r) => r.json());
+    if (invalidCapRes.success || invalidCapRes.error?.code !== 'INVALID_CAPACITY') {
+      throw new Error('Capacity < 1 validation check failed: ' + JSON.stringify(invalidCapRes));
+    }
+    console.log('✓ Capacity < 1 update validation enforced (INVALID_CAPACITY).');
+
+    // 13. Date query filter verification
+    const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const dateFilteredRes: any = await fetch(`${baseUrl}/events?date=${tomorrowStr}`).then((r) => r.json());
+    if (!dateFilteredRes.success || !Array.isArray(dateFilteredRes.data)) {
+      throw new Error('Date filter query failed: ' + JSON.stringify(dateFilteredRes));
+    }
+    console.log(`✓ Event date filter query verified (${dateFilteredRes.data.length} events returned for ${tomorrowStr}).`);
 
     console.log('\n--- ALL VERIFICATION TESTS PASSED SUCCESSFULLY! ---\n');
   } finally {
+    // Safe cleanup of test resources in finally block
+    if (eventId) {
+      await prisma.booking.deleteMany({ where: { eventId } }).catch(() => {});
+      await prisma.event.delete({ where: { id: eventId } }).catch(() => {});
+    }
+    if (student2Id) {
+      await prisma.booking.deleteMany({ where: { studentId: student2Id } }).catch(() => {});
+      await prisma.user.delete({ where: { id: student2Id } }).catch(() => {});
+    }
     server.close();
     await prisma.$disconnect();
   }

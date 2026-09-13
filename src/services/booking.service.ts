@@ -25,6 +25,9 @@ export class BookingService {
         throw new AppError(400, 'EVENT_CONCLUDED', 'Cannot RSVP to an event that has already ended.');
       }
 
+      // Concurrency lock on event row to prevent race conditions during RSVP
+      await tx.$queryRaw`SELECT id FROM events WHERE id = ${eventId} FOR UPDATE`;
+
       // 2. Check existing booking for student
       const existing = await tx.booking.findUnique({
         where: {

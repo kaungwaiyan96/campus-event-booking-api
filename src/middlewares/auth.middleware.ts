@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Role } from '@prisma/client';
 import prisma from '../config/prisma';
 import { AppError } from './error.middleware';
+import config from '../config/env';
 
 export interface AuthUser {
   id: string;
@@ -24,7 +25,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     const authHeader = req.headers.authorization;
 
     // In development mode: Allow x-user-id header or default to first user in DB if no Bearer token provided
-    if (process.env.NODE_ENV === 'development' && (!authHeader || !authHeader.startsWith('Bearer '))) {
+    if (config.nodeEnv === 'development' && (!authHeader || !authHeader.startsWith('Bearer '))) {
       const devUserId = (req.headers['x-user-id'] as string) || undefined;
       const user = devUserId
         ? await prisma.user.findUnique({ where: { id: devUserId } })

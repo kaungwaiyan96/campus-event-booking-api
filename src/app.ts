@@ -18,6 +18,17 @@ app.get('/events-api/v1/health', (req, res) => {
 app.use('/events-api/v1/events', eventRoutes);
 app.use('/events-api/v1/bookings', bookingRoutes);
 
+// Catch-all 404 handler for undefined routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: {
+      code: 'NOT_FOUND',
+      message: `Route ${req.method} ${req.originalUrl} not found.`,
+    },
+  });
+});
+
 // Shared Global Centralized Error Handler
 app.use(errorHandler);
 

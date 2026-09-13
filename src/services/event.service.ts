@@ -24,6 +24,23 @@ export class EventService {
       where.startTime = { gte: new Date() };
     }
 
+    if (filters.date) {
+      const parsedDate = new Date(filters.date);
+      if (!isNaN(parsedDate.getTime())) {
+        const startOfDay = new Date(parsedDate);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const endOfDay = new Date(parsedDate);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+
+        const currentFilter = (where.startTime && typeof where.startTime === 'object' ? where.startTime : {}) as Prisma.DateTimeFilter;
+        where.startTime = {
+          ...currentFilter,
+          gte: currentFilter.gte ? (currentFilter.gte > startOfDay ? currentFilter.gte : startOfDay) : startOfDay,
+          lte: endOfDay,
+        };
+      }
+    }
+
     const events = await prisma.event.findMany({
       where,
       orderBy: { startTime: 'asc' },
@@ -140,6 +157,10 @@ export class EventService {
 
     if (user.role !== 'ADMIN' && existing.organizerId !== user.id) {
       throw new AppError(403, 'FORBIDDEN', 'You do not have permission to update this event.');
+    }
+
+    if (data.capacity !== undefined && data.capacity < 1) {
+      throw new AppError(400, 'INVALID_CAPACITY', 'Capacity must be at least 1.');
     }
 
     if (data.capacity !== undefined && data.capacity < existing._count.bookings) {
