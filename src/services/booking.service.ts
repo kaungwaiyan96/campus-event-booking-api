@@ -25,20 +25,7 @@ export class BookingService {
         throw new AppError(400, 'EVENT_CONCLUDED', 'Cannot RSVP to an event that has already ended.');
       }
 
-      // 2. Count active bookings
-      const confirmedCount = await tx.booking.count({
-        where: {
-          eventId,
-          status: BookingStatus.CONFIRMED,
-        },
-      });
-
-      // 3. Verify capacity
-      if (confirmedCount >= event.capacity) {
-        throw new AppError(400, 'CAPACITY_EXCEEDED', 'Event is at full capacity.');
-      }
-
-      // 4. Check existing booking for student
+      // 2. Check existing booking for student
       const existing = await tx.booking.findUnique({
         where: {
           eventId_studentId: {
@@ -48,11 +35,24 @@ export class BookingService {
         },
       });
 
-      if (existing) {
-        if (existing.status === BookingStatus.CONFIRMED) {
-          throw new AppError(409, 'ALREADY_BOOKED', 'You already have an active RSVP for this event.');
-        }
+      if (existing && existing.status === BookingStatus.CONFIRMED) {
+        throw new AppError(409, 'ALREADY_BOOKED', 'You already have an active RSVP for this event.');
+      }
 
+      // 3. Count active bookings
+      const confirmedCount = await tx.booking.count({
+        where: {
+          eventId,
+          status: BookingStatus.CONFIRMED,
+        },
+      });
+
+      // 4. Verify capacity
+      if (confirmedCount >= event.capacity) {
+        throw new AppError(400, 'CAPACITY_EXCEEDED', 'Event is at full capacity.');
+      }
+
+      if (existing) {
         // Reactivate previously cancelled booking
         return tx.booking.update({
           where: { id: existing.id },
