@@ -17,7 +17,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-campus_events}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+    networks:
+      - campus_network
 
   api:
     build:
@@ -35,6 +36,9 @@ services:
       AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
       AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
       AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      AZURE_AD_CLIENT_ID: ${AZURE_AD_CLIENT_ID:-}
+      AZURE_AD_TENANT_ID: ${AZURE_AD_TENANT_ID:-}
+      AZURE_AD_AUDIENCE: ${AZURE_AD_AUDIENCE:-}
       PEER_API_KEY: ${PEER_API_KEY:-campus_events_sec_key_2026}
       JWT_SECRET: ${JWT_SECRET:-super_secret_campus_jwt_key_2026}
     depends_on:
