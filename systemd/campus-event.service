@@ -1,0 +1,21 @@
+[Unit]
+Description=Campus Event API containers
+Requires=docker.service
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=azureuser
+Group=azureuser
+WorkingDirectory=/home/azureuser/campus-event-booking-api
+EnvironmentFile=/etc/campus-event/config.env
+RuntimeDirectory=campus-event
+RuntimeDirectoryMode=0700
+ExecStart=/home/azureuser/campus-event-booking-api/scripts/start-production.sh
+ExecStop=/usr/bin/docker compose -f docker-compose.production.yml stop
+RemainAfterExit=yes
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

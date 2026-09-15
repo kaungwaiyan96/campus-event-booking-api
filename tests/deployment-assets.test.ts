@@ -29,3 +29,16 @@ test('production Compose renders without publishing PostgreSQL', () => {
   assert.equal(compose.services.api.environment.JWT_SECRET, undefined);
   assert.equal(compose.services.api.environment.PEER_API_KEY, undefined);
 });
+
+for (const script of ['scripts/deploy.sh', 'scripts/start-production.sh', 'scripts/configure-nginx.sh']) {
+  test(`${script} has valid Bash syntax`, () => {
+    const result = spawnSync('bash', ['-n', script], { cwd: process.cwd(), encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+  });
+
+  test(`${script} documents its required arguments`, () => {
+    const result = spawnSync('bash', [script, '--help'], { cwd: process.cwd(), encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Usage:/);
+  });
+}
