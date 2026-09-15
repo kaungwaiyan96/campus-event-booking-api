@@ -655,7 +655,7 @@ assert.match(deployWebScript, /docker buildx build/);
 assert.match(deployWebScript, /ln -sfn/);
 ```
 
-Also assert the script requires exactly the Git SHA, SPA client ID, and backend scope as arguments; validates a 40-character lowercase SHA; and never contains secret-variable names.
+Also assert the script requires exactly two arguments—the Git SHA and SPA client ID—derives the fixed backend scope internally, validates a 40-character lowercase SHA, and never contains secret-variable names.
 
 - [ ] **Step 2: Run the deployment test to verify failure**
 
@@ -691,7 +691,7 @@ COPY --from=build /app/dist /
 
 - [ ] **Step 4: Implement atomic deployment**
 
-`scripts/deploy-web.sh` accepts `<40-char-sha> <spa-client-id>`, refuses to run as root, derives the known tenant/scope/origin, verifies `git rev-parse HEAD` exactly matches the SHA, exports the build into a mode-755 staging directory with `docker buildx build --target export --output type=local`, uses narrowly scoped `sudo install`/`sudo ln` commands to move it to `/var/www/campus-event/releases/$SHA`, switches `current` with `ln -sfn`, validates `nginx -t`, reloads Nginx, and removes only its own staging directory on exit. It never deletes earlier releases or modifies API containers.
+`scripts/deploy-web.sh` accepts `<40-char-sha> <spa-client-id>`, refuses to run as root, derives the known tenant/scope/origin, verifies `git rev-parse HEAD` exactly matches the SHA, exports the build into a mode-755 staging directory with `docker buildx build --target export --output type=local`, uses narrowly scoped `sudo install`/`sudo ln` commands to move it to `/var/www/campus-event/releases/$SHA`, switches `current` atomically with GNU `ln -sfnT`, validates `nginx -t`, reloads Nginx, and removes only its own staging directory on exit. It never deletes earlier releases or modifies API containers.
 
 - [ ] **Step 5: Update Nginx without changing the working TLS setup**
 
