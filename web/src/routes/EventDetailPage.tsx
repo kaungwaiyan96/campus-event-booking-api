@@ -7,12 +7,13 @@ import { useAuth } from '../auth/useAuth';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { Notice } from '../components/Notice';
 import { WeatherCard } from '../features/events/WeatherCard';
+import { BookEventButton } from '../features/bookings/BookEventButton';
 
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'short' }).format(new Date(value));
 }
 
-function BookingPresentation() {
+function BookingPresentation({ event, onBooked }: { event: EventDetail; onBooked(): void }) {
   const { profile, signIn, status } = useAuth();
 
   if (status === 'anonymous') {
@@ -20,7 +21,7 @@ function BookingPresentation() {
   }
 
   if (profile?.role === 'STUDENT' || profile?.role === 'ADMIN') {
-    return <p className="booking-seam" aria-label="Booking action">Booking is available for your campus role.</p>;
+    return <BookEventButton eventId={event.id} remainingCapacity={event.remainingCapacity} onBooked={onBooked} />;
   }
 
   return null;
@@ -111,7 +112,7 @@ export function EventDetailPage() {
         )}
       </div>
       <section className="booking-presentation" aria-label="Booking">
-        <BookingPresentation />
+        <BookingPresentation event={event} onBooked={() => void loadEvent()} />
       </section>
     </article>
   );
