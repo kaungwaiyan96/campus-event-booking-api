@@ -18,10 +18,19 @@ declare global {
 }
 
 // JWKS Client for Microsoft Entra ID (Azure AD) public keys
-const entraVerification = createEntraVerification(
-  config.azureAd.tenantId!,
-  config.azureAd.audience!
-);
+function getEntraVerification() {
+  if (config.azureAd.tenantId && config.azureAd.audience) {
+    return createEntraVerification(config.azureAd.tenantId, config.azureAd.audience);
+  }
+
+  if (config.nodeEnv === 'development') {
+    return createEntraVerification('common', 'development');
+  }
+
+  throw new Error('AZURE_AD_TENANT_ID and AZURE_AD_AUDIENCE are required for Entra verification.');
+}
+
+const entraVerification = getEntraVerification();
 const jwks = jwksClient({
   jwksUri: entraVerification.jwksUri,
   cache: true,
