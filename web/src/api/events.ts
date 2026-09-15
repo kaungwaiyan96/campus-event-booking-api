@@ -22,20 +22,24 @@ export function getEvent(client: ApiClient, id: string): Promise<EventDetail> {
   return client.request<EventDetail>(`/events/${id}`);
 }
 
-export function createEvent(client: ApiClient, input: EventInput): Promise<EventSummary> {
-  return client.request<EventSummary>('/events', {
+export async function createEvent(client: ApiClient, input: EventInput): Promise<EventSummary> {
+  const created = await client.request<{ id: string }>('/events', {
     method: 'POST',
     auth: true,
     body: JSON.stringify(input),
   });
+
+  return getEvent(client, created.id);
 }
 
-export function updateEvent(client: ApiClient, id: string, input: Partial<EventInput>): Promise<EventSummary> {
-  return client.request<EventSummary>(`/events/${id}`, {
+export async function updateEvent(client: ApiClient, id: string, input: Partial<EventInput>): Promise<EventSummary> {
+  await client.request<unknown>(`/events/${id}`, {
     method: 'PUT',
     auth: true,
     body: JSON.stringify(input),
   });
+
+  return getEvent(client, id);
 }
 
 export function deleteEvent(client: ApiClient, id: string): Promise<{ message: string }> {
