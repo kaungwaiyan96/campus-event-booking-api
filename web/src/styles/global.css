@@ -62,6 +62,39 @@ nav a {
   font-weight: 600;
 }
 
+nav {
+  display: flex;
+  gap: var(--space-4);
+}
+
+button {
+  padding: var(--space-2) var(--space-3);
+  color: var(--surface);
+  font: inherit;
+  font-weight: 700;
+  background: var(--color-sky-700);
+  border: 0;
+  border-radius: var(--radius-card);
+  cursor: pointer;
+}
+
+.profile-menu,
+.profile-menu-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.role-badge {
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-sky-700);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: var(--color-sky-100);
+  border-radius: var(--radius-pill);
+}
+
 main {
   padding-block: var(--space-12);
 }
