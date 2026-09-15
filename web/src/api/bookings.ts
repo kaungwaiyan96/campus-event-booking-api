@@ -20,9 +20,16 @@ export async function createBooking(client: ApiClient, eventId: string): Promise
   return booking;
 }
 
-export function cancelBooking(client: ApiClient, id: string): Promise<{ message: string; booking: Booking }> {
-  return client.request<{ message: string; booking: Booking }>(`/bookings/${id}`, {
+export async function cancelBooking(client: ApiClient, id: string): Promise<{ message: string; booking: Booking }> {
+  const cancelled = await client.request<{ message: string; booking: { id: string } }>(`/bookings/${id}`, {
     method: 'DELETE',
     auth: true,
   });
+
+  const booking = (await getMyBookings(client)).find(({ id: bookingId }) => bookingId === cancelled.booking.id);
+  if (!booking) {
+    throw new ApiError(500, 'INVALID_RESPONSE', 'The cancelled booking was not found in your bookings.');
+  }
+
+  return { message: cancelled.message, booking };
 }

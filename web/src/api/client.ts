@@ -60,7 +60,15 @@ export function createApiClient(options: {
         }
       }
 
-      const response = await fetch(`${baseUrl}${path}`, { ...requestInit, headers });
+      let response: Response;
+      try {
+        response = await fetch(`${baseUrl}${path}`, { ...requestInit, headers });
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error;
+        }
+        throw new ApiError(0, 'NETWORK_ERROR', 'Unable to reach the server.');
+      }
       const responseText = await response.text();
       let payload: unknown;
 

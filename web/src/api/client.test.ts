@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, createApiClient } from './client';
-import { createBooking } from './bookings';
-import { createEvent, updateEvent } from './events';
+import { cancelBooking, createBooking } from './bookings';
+import { createEvent, listEvents, updateEvent } from './events';
 import type { ApiClient } from './client';
 import type { Booking, EventDetail, EventInput } from './types';
 
@@ -49,6 +49,58 @@ describe('createApiClient', () => {
       status: 403,
       code: 'FORBIDDEN',
       message: 'You do not have permission to update this event.',
+    });
+  });
+
+  it('sets Content-Type only when a request has a body', async () => {
+    const fetchSpy = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ success: true, data: {} }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+    globalThis.fetch = fetchSpy;
+    const client = createApiClient({ baseUrl: 'https://api.example.test', getAccessToken: async () => null });
+
+    await client.request('/without-body');
+    await client.request('/with-body', { method: 'POST', body: JSON.stringify({ name: 'Avery' }) });
+
+    const withoutBody = new Headers((fetchSpy.mock.calls[0][1] as RequestInit).headers);
+    const withBody = new Headers((fetchSpy.mock.calls[1][1] as RequestInit).headers);
+    expect(withoutBody.has('Content-Type')).toBe(false);
+    expect(withBody.get('Content-Type')).toBe('application/json');
+  });
+
+  it('does not acquire an access token for an unauthenticated request', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true, data: {} }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    const getAccessToken = vi.fn(async () => 'access-token');
+    const client = createApiClient({ baseUrl: 'https://api.example.test', getAccessToken });
+
+    await client.request('/events');
+
+    expect(getAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('normalizes a non-JSON HTTP failure without exposing its response body', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('gateway diagnostic: token=secret', { status: 502 }));
+    const client = createApiClient({ baseUrl: 'https://api.example.test', getAccessToken: async () => null });
+
+    await expect(client.request('/events')).rejects.toMatchObject({
+      status: 502,
+      code: 'REQUEST_FAILED',
+      message: 'Request failed with status 502.',
+    });
+  });
+
+  it('normalizes a rejected fetch without exposing the underlying error', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error: access-token=secret'));
+    const client = createApiClient({ baseUrl: 'https://api.example.test', getAccessToken: async () => null });
+
+    await expect(client.request('/events')).rejects.toMatchObject({
+      status: 0,
+      code: 'NETWORK_ERROR',
+      message: 'Unable to reach the server.',
     });
   });
 });
@@ -101,6 +153,7 @@ describe('mutation endpoint contracts', () => {
 
     await expect(createEvent(client, eventInput)).resolves.toEqual(canonicalEvent);
     expect(calls.map(([path]) => path)).toEqual(['/events', '/events/event-1']);
+    expect(calls[0][1]).toMatchObject({ method: 'POST', auth: true, body: JSON.stringify(eventInput) });
   });
 
   it('re-reads an updated event so callers receive all canonical event fields', async () => {
@@ -134,6 +187,7 @@ describe('mutation endpoint contracts', () => {
 
     await expect(createBooking(client, 'event-1')).resolves.toEqual(canonicalBooking);
     expect(calls.map(([path]) => path)).toEqual(['/bookings', '/bookings/my-bookings']);
+    expect(calls[0][1]).toMatchObject({ method: 'POST', auth: true, body: JSON.stringify({ eventId: 'event-1' }) });
   });
 
   it('throws a safe ApiError when the newly created booking is absent from the read-back', async () => {
@@ -146,5 +200,61 @@ describe('mutation endpoint contracts', () => {
       code: 'INVALID_RESPONSE',
       message: 'The created booking was not found in your bookings.',
     });
+  });
+
+  it('re-reads a cancelled booking so callers receive the canonical booking fields', async () => {
+    const canonicalBooking: Booking = {
+      id: 'booking-1',
+      status: 'CANCELLED',
+      bookedAt: '2026-09-16T00:00:00.000Z',
+      event: {
+        id: 'event-1',
+        title: 'Campus clean-up',
+        venueName: 'Main Quad',
+        venueAddress: '1 University Way',
+        startTime: '2026-10-01T09:00:00.000Z',
+        endTime: '2026-10-01T11:00:00.000Z',
+      },
+    };
+    const { client, calls } = createRecordingClient((path) => path === '/bookings/booking-1'
+      ? { message: 'Booking cancelled successfully. Capacity freed.', booking: { id: 'booking-1' } }
+      : [canonicalBooking]);
+
+    await expect(cancelBooking(client, 'booking-1')).resolves.toEqual({
+      message: 'Booking cancelled successfully. Capacity freed.',
+      booking: canonicalBooking,
+    });
+    expect(calls.map(([path]) => path)).toEqual(['/bookings/booking-1', '/bookings/my-bookings']);
+  });
+
+  it('throws a safe ApiError when the cancelled booking is absent from the read-back', async () => {
+    const { client } = createRecordingClient((path) => path === '/bookings/booking-1'
+      ? { message: 'Booking cancelled successfully. Capacity freed.', booking: { id: 'booking-1' } }
+      : []);
+
+    await expect(cancelBooking(client, 'booking-1')).rejects.toMatchObject({
+      status: 500,
+      code: 'INVALID_RESPONSE',
+      message: 'The cancelled booking was not found in your bookings.',
+    });
+  });
+});
+
+describe('event filter encoding', () => {
+  it('encodes populated filters and omits empty strings and false upcoming values', async () => {
+    const { client, calls } = createRecordingClient(() => []);
+
+    await listEvents(client, {
+      search: 'campus event',
+      venue: '',
+      date: '2026-10-01',
+      upcoming: false,
+    });
+    await listEvents(client, { upcoming: true });
+
+    expect(calls).toEqual([
+      ['/events?search=campus+event&date=2026-10-01', undefined],
+      ['/events?upcoming=true', undefined],
+    ]);
   });
 });
