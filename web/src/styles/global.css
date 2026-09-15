@@ -78,6 +78,12 @@ button {
   cursor: pointer;
 }
 
+button.button-secondary {
+  color: var(--color-sky-700);
+  background: var(--surface);
+  border: 1px solid var(--color-sky-700);
+}
+
 .profile-menu,
 .profile-menu-error {
   display: flex;
@@ -119,6 +125,214 @@ main {
   color: var(--text-muted);
 }
 
+.events-page,
+.event-detail {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.event-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.field-group {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field-group label,
+.check-field {
+  color: var(--color-navy-900);
+  font-weight: 700;
+}
+
+.field-group input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text);
+  font: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.check-field {
+  display: flex;
+  align-items: end;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.check-field input {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.filter-actions {
+  display: flex;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-6);
+}
+
+.event-card,
+.detail-panel,
+.weather-card,
+.map-panel,
+.empty-state,
+.notice {
+  padding: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.event-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.event-card h2,
+.detail-panel h2,
+.weather-card h2,
+.map-panel h2,
+.empty-state h2,
+.notice h2 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.125rem;
+}
+
+.event-card p,
+.detail-panel p,
+.weather-card p,
+.map-panel p,
+.empty-state p,
+.notice-content p {
+  margin: 0 0 var(--space-2);
+}
+
+.event-card .eyebrow {
+  margin-bottom: var(--space-2);
+}
+
+.event-schedule,
+.event-organizer,
+.event-description,
+.detail-panel p + p {
+  color: var(--text-muted);
+}
+
+.event-capacity strong,
+.weather-temperature {
+  color: var(--color-sky-700);
+  font-size: 1.25rem;
+}
+
+.text-link,
+.back-link {
+  color: var(--color-sky-700);
+  font-weight: 700;
+}
+
+.event-card .text-link {
+  margin-top: auto;
+}
+
+.loading-skeleton {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.skeleton-line {
+  display: block;
+  height: 5rem;
+  background: linear-gradient(90deg, var(--color-sky-100), var(--surface), var(--color-sky-100));
+  border-radius: var(--radius-card);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.notice-error {
+  border-color: #dc2626;
+}
+
+.notice button {
+  margin-top: var(--space-2);
+}
+
+.event-detail > header {
+  max-width: 48rem;
+}
+
+.event-detail h1 {
+  margin: var(--space-2) 0 var(--space-3);
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 1.1;
+}
+
+.event-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-4);
+}
+
+.map-panel {
+  margin: 0;
+}
+
+.map-panel img {
+  display: block;
+  width: 100%;
+  min-height: 10rem;
+  object-fit: cover;
+  border-radius: 0.5rem;
+}
+
+.map-panel figcaption {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+}
+
+.booking-presentation {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.booking-seam {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes pulse {
+  50% { opacity: 0.55; }
+}
+
 .eyebrow {
   margin: 0;
   color: var(--color-sky-700);
@@ -158,6 +372,15 @@ main {
 
   .hero {
     padding: var(--space-6);
+  }
+
+  .event-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .check-field,
+  .filter-actions {
+    align-items: center;
   }
 }
 

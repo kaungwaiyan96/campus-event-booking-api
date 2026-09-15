@@ -1,13 +1,15 @@
 import { AppShell } from './components/AppShell';
+import { Route, Routes } from 'react-router-dom';
+import { EventDetailPage } from './routes/EventDetailPage';
+import { EventsPage } from './routes/EventsPage';
 
 export function App() {
   return (
     <AppShell>
-      <section className="hero" aria-labelledby="page-title">
-        <p className="eyebrow">University community</p>
-        <h1 id="page-title">Discover campus events</h1>
-        <p>Find lectures, activities, and gatherings across campus.</p>
-      </section>
+      <Routes>
+        <Route path="/" element={<EventsPage />} />
+        <Route path="/events/:eventId" element={<EventDetailPage />} />
+      </Routes>
     </AppShell>
   );
 }

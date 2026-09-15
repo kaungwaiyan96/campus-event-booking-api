@@ -1,6 +1,6 @@
-import { screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/client';
 import type { UserProfile } from '../api/types';
 import { renderWithAppProviders } from '../test/render';
@@ -20,12 +20,17 @@ const api = vi.hoisted(() => ({
   getMyProfile: vi.fn(),
 }));
 
+const events = vi.hoisted(() => ({
+  listEvents: vi.fn(),
+}));
+
 vi.mock('./msal', () => ({
   loginRequest: { scopes: ['api://campus-events/access_as_user'] },
   msalInstance: msal,
 }));
 
 vi.mock('../api/auth', () => api);
+vi.mock('../api/events', () => events);
 
 const account = {
   homeAccountId: 'home-account-id',
@@ -46,6 +51,8 @@ const organizerProfile: UserProfile = {
 };
 
 describe('AuthProvider', () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     vi.clearAllMocks();
     msal.getActiveAccount.mockReturnValue(null);
@@ -54,6 +61,7 @@ describe('AuthProvider', () => {
     msal.logoutPopup.mockResolvedValue(undefined);
     msal.acquireTokenSilent.mockResolvedValue({ accessToken: 'access-token' });
     api.getMyProfile.mockResolvedValue(organizerProfile);
+    events.listEvents.mockResolvedValue([]);
   });
 
   it('signs in, obtains the verified profile role, and signs out', async () => {
