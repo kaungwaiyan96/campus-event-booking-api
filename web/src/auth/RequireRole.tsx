@@ -7,8 +7,26 @@ interface RequireRoleProps {
   children: ReactNode;
 }
 
+function ProfileRecovery({ retryProfile }: Pick<ReturnType<typeof useAuth>, 'retryProfile'>) {
+  return (
+    <section role="alert" aria-labelledby="profile-error-title">
+      <h1 id="profile-error-title">We could not load your campus profile</h1>
+      <p>Please retry before accessing this area.</p>
+      <button type="button" onClick={() => void retryProfile()}>Retry profile</button>
+    </section>
+  );
+}
+
 export function RequireRole({ allowedRoles, children }: RequireRoleProps) {
-  const { profile, signIn, status } = useAuth();
+  const { profile, retryProfile, signIn, status } = useAuth();
+
+  if (status === 'loading') {
+    return <p role="status">Checking your campus profile…</p>;
+  }
+
+  if (status === 'error') {
+    return <ProfileRecovery retryProfile={retryProfile} />;
+  }
 
   if (status === 'anonymous') {
     return (
@@ -20,7 +38,7 @@ export function RequireRole({ allowedRoles, children }: RequireRoleProps) {
     );
   }
 
-  if (!profile || !allowedRoles.includes(profile.role)) {
+  if (status === 'authenticated' && profile && !allowedRoles.includes(profile.role)) {
     return (
       <section aria-labelledby="permission-required-title">
         <h1 id="permission-required-title">You do not have permission to view this page</h1>
@@ -29,5 +47,9 @@ export function RequireRole({ allowedRoles, children }: RequireRoleProps) {
     );
   }
 
-  return <>{children}</>;
+  if (status === 'authenticated' && profile) {
+    return <>{children}</>;
+  }
+
+  return <ProfileRecovery retryProfile={retryProfile} />;
 }

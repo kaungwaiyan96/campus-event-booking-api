@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../api/client';
 import type { UserProfile } from '../api/types';
 import { renderWithAppProviders } from '../test/render';
 import { App } from '../App';
@@ -89,5 +90,16 @@ describe('AuthProvider', () => {
     await user.click(screen.getByRole('button', { name: /retry profile/i }));
 
     expect(await screen.findByText('ORGANIZER')).toBeInTheDocument();
+  });
+
+  it('returns to a sign-in state when the verified profile endpoint rejects the account', async () => {
+    msal.getActiveAccount.mockReturnValue(account);
+    api.getMyProfile.mockRejectedValue(new ApiError(401, 'UNAUTHORIZED', 'Authentication is required.'));
+
+    renderWithAppProviders(<App />);
+
+    expect(await screen.findByRole('button', { name: /sign in with microsoft/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /retry profile/i })).not.toBeInTheDocument();
+    expect(msal.setActiveAccount).toHaveBeenCalledWith(null);
   });
 });

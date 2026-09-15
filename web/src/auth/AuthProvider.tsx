@@ -1,7 +1,7 @@
 import { InteractionRequiredAuthError, type AccountInfo } from '@azure/msal-browser';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { getMyProfile } from '../api/auth';
-import { createApiClient } from '../api/client';
+import { ApiError, createApiClient } from '../api/client';
 import type { UserProfile } from '../api/types';
 import { publicEnv } from '../config/env';
 import { loginRequest, msalInstance } from './msal';
@@ -74,8 +74,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setProfile(verifiedProfile);
       setStatus('authenticated');
-    } catch {
+    } catch (error) {
       if (requestVersion !== profileRequestVersion.current) {
+        return;
+      }
+
+      if (error instanceof ApiError && error.status === 401) {
+        accountRef.current = null;
+        msalInstance.setActiveAccount(null);
+        setProfile(null);
+        setStatus('anonymous');
         return;
       }
 
