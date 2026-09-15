@@ -3,5 +3,7 @@ dist/
 .env
 .superpowers/
 .worktrees/
+web/.env.local
+web/dist/
 *.log
 *.pem
