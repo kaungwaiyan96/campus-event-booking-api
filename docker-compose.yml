@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -41,6 +39,8 @@ services:
       AZURE_AD_AUDIENCE: ${AZURE_AD_AUDIENCE:-}
       PEER_API_KEY: ${PEER_API_KEY:-campus_events_sec_key_2026}
       JWT_SECRET: ${JWT_SECRET:-super_secret_campus_jwt_key_2026}
+      CAMPUS_LATITUDE: ${CAMPUS_LATITUDE:-13.7563}
+      CAMPUS_LONGITUDE: ${CAMPUS_LONGITUDE:-100.5018}
     depends_on:
       postgres:
         condition: service_healthy

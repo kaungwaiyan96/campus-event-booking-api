@@ -13,6 +13,43 @@ async function runTests() {
 
   await new Promise<void>((resolve) => server.listen(5099, resolve));
   const baseUrl = 'http://localhost:5099/events-api/v1';
+  const nativeFetch = globalThis.fetch;
+  let weatherProviderAvailable = true;
+
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+    if (String(input).startsWith('https://api.open-meteo.com/')) {
+      if (!weatherProviderAvailable) {
+        return new Response(null, { status: 503 });
+      }
+
+      return new Response(JSON.stringify({
+        latitude: 13.75,
+        longitude: 100.5,
+        generationtime_ms: 0.04,
+        utc_offset_seconds: 0,
+        timezone: 'GMT',
+        timezone_abbreviation: 'GMT',
+        elevation: 5,
+        current_units: {
+          time: 'iso8601',
+          interval: 'seconds',
+          temperature_2m: '°C',
+          weather_code: 'wmo code',
+        },
+        current: {
+          time: '2026-09-15T10:00',
+          interval: 900,
+          temperature_2m: 30.5,
+          weather_code: 2,
+        },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return nativeFetch(input, init);
+  };
 
   let eventId: string | undefined;
   let student2Id: string | undefined;
@@ -56,7 +93,35 @@ async function runTests() {
     eventId = createEventRes.data.id;
     console.log('✓ Organizer successfully created event with capacity 1.');
 
-    // 4. Student 1 books the only seat
+    // 4. Public event detail includes weather consumed from Open-Meteo
+    const eventDetailRes: any = await nativeFetch(`${baseUrl}/events/${eventId}`).then((r) => r.json());
+    const weather = eventDetailRes.data?.weather;
+    if (!eventDetailRes.success
+      || weather?.source !== 'open-meteo'
+      || weather?.available !== true
+      || weather?.temperatureC !== 30.5
+      || weather?.weatherCode !== 2
+      || weather?.observedAt !== '2026-09-15T10:00Z') {
+      throw new Error('Event weather integration failed: ' + JSON.stringify(eventDetailRes));
+    }
+    console.log('✓ Event detail includes current weather from the public API.');
+
+    weatherProviderAvailable = false;
+    const fallbackDetailRes: any = await nativeFetch(`${baseUrl}/events/${eventId}`).then((r) => r.json());
+    const fallbackWeather = fallbackDetailRes.data?.weather;
+    if (!fallbackDetailRes.success
+      || fallbackWeather?.source !== 'open-meteo'
+      || fallbackWeather?.available !== false
+      || fallbackWeather?.temperatureC !== null
+      || fallbackWeather?.weatherCode !== null
+      || fallbackWeather?.observedAt !== null
+      || fallbackWeather?.reason !== 'UNAVAILABLE') {
+      throw new Error('Event weather fallback failed: ' + JSON.stringify(fallbackDetailRes));
+    }
+    weatherProviderAvailable = true;
+    console.log('✓ Event detail remains available when the public weather API fails.');
+
+    // 5. Student 1 books the only seat
     const bookRes1: any = await fetch(`${baseUrl}/bookings`, {
       method: 'POST',
       headers: {
@@ -70,7 +135,7 @@ async function runTests() {
     const bookingId = bookRes1.data.id;
     console.log('✓ Student 1 successfully RSVP-ed for the only seat.');
 
-    // 5. Duplicate booking check (Student 1 tries again)
+    // 6. Duplicate booking check (Student 1 tries again)
     const duplicateRes: any = await fetch(`${baseUrl}/bookings`, {
       method: 'POST',
       headers: {
@@ -85,7 +150,7 @@ async function runTests() {
     }
     console.log('✓ Duplicate booking prevented (ALREADY_BOOKED).');
 
-    // 6. Overcapacity check: Create a second student and try to book full event
+    // 7. Overcapacity check: Create a second student and try to book full event
     const student2 = await prisma.user.create({
       data: {
         adOid: 'ad-student-002-test',
@@ -110,7 +175,7 @@ async function runTests() {
     }
     console.log('✓ Capacity limit enforced (CAPACITY_EXCEEDED).');
 
-    // 7. Cancel booking and check capacity liberation
+    // 8. Cancel booking and check capacity liberation
     const cancelRes: any = await fetch(`${baseUrl}/bookings/${bookingId}`, {
       method: 'DELETE',
       headers: {
@@ -121,7 +186,7 @@ async function runTests() {
     if (!cancelRes.success) throw new Error('Cancellation failed: ' + JSON.stringify(cancelRes));
     console.log('✓ Student 1 cancelled booking successfully.');
 
-    // 8. Student 2 now books the freed seat
+    // 9. Student 2 now books the freed seat
     const bookRes2: any = await fetch(`${baseUrl}/bookings`, {
       method: 'POST',
       headers: {
@@ -134,7 +199,7 @@ async function runTests() {
     if (!bookRes2.success) throw new Error('Rebooking freed seat failed: ' + JSON.stringify(bookRes2));
     console.log('✓ Student 2 successfully booked freed seat.');
 
-    // 9. Organizer views attendees
+    // 10. Organizer views attendees
     const attendeesRes: any = await fetch(`${baseUrl}/events/${eventId}/attendees`, {
       headers: {
         'x-user-id': organizer.id,
@@ -146,14 +211,14 @@ async function runTests() {
     }
     console.log('✓ Organizer attendee list correctly verified (1 confirmed attendee).');
 
-    // 10. 404 Catch-all verification
+    // 11. 404 Catch-all verification
     const notFoundRes: any = await fetch(`${baseUrl}/undefined-route-test`).then((r) => r.json());
     if (notFoundRes.success || notFoundRes.error?.code !== 'NOT_FOUND') {
       throw new Error('404 catch-all check failed: ' + JSON.stringify(notFoundRes));
     }
     console.log('✓ Catch-all 404 handler verified (NOT_FOUND).');
 
-    // 11. Malformed JSON syntax error verification
+    // 12. Malformed JSON syntax error verification
     const badJsonRes: any = await fetch(`${baseUrl}/events`, {
       method: 'POST',
       headers: {
@@ -167,7 +232,7 @@ async function runTests() {
     }
     console.log('✓ Malformed JSON parser error caught (INVALID_JSON).');
 
-    // 12. Capacity < 1 update validation
+    // 13. Capacity < 1 update validation
     const invalidCapRes: any = await fetch(`${baseUrl}/events/${eventId}`, {
       method: 'PUT',
       headers: {
@@ -181,7 +246,7 @@ async function runTests() {
     }
     console.log('✓ Capacity < 1 update validation enforced (INVALID_CAPACITY).');
 
-    // 13. Date query filter verification
+    // 14. Date query filter verification
     const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const dateFilteredRes: any = await fetch(`${baseUrl}/events?date=${tomorrowStr}`).then((r) => r.json());
     if (!dateFilteredRes.success || !Array.isArray(dateFilteredRes.data)) {
@@ -200,6 +265,7 @@ async function runTests() {
       await prisma.booking.deleteMany({ where: { studentId: student2Id } }).catch(() => {});
       await prisma.user.delete({ where: { id: student2Id } }).catch(() => {});
     }
+    globalThis.fetch = nativeFetch;
     server.close();
     await prisma.$disconnect();
   }

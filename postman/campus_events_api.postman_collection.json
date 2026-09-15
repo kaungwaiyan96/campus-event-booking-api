@@ -437,7 +437,14 @@
                 "exec": [
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test('Success envelope', () => pm.expect(body.success).to.eql(true));"
+                  "pm.test('Success envelope', () => pm.expect(body.success).to.eql(true));",
+                  "pm.test('Public weather integration is included', () => {",
+                  "  pm.expect(body.data.weather.source).to.eql('open-meteo');",
+                  "  pm.expect(body.data.weather.available).to.be.a('boolean');",
+                  "  pm.expect(body.data.weather).to.have.property('temperatureC');",
+                  "  pm.expect(body.data.weather).to.have.property('weatherCode');",
+                  "  pm.expect(body.data.weather).to.have.property('observedAt');",
+                  "});"
                 ]
               }
             }
