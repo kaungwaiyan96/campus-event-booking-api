@@ -75,15 +75,42 @@ This workspace can use that alternate database port for local verification.
 | `JWT_SECRET` | Signing secret for local demo JWTs |
 | `CAMPUS_LATITUDE`, `CAMPUS_LONGITUDE` | Coordinates sent to Open-Meteo for event-detail weather; example defaults point to Bangkok |
 | `AZURE_AD_CLIENT_ID`, `AZURE_AD_TENANT_ID`, `AZURE_AD_AUDIENCE` | Entra token configuration |
-| `KEY_VAULT_NAME`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` | Key Vault and Azure credentials |
+| `KEY_VAULT_NAME` | Azure Key Vault name used by the production managed identity |
 
-Keep `.env` and real keys out of Git. Replace example secrets for deployment. The Postman `peerApiKey` variable must match the server's configuration.
+Keep `.env` and real keys out of Git. The production VM uses its system-assigned managed identity rather than `AZURE_CLIENT_SECRET`; never put an Azure client secret, production peer key, or runtime secret in this repository or Postman export. The Postman `peerApiKey` variable must match the server's configuration when testing a local development stack.
 
 ### Docker and Nginx
 
 The intended full-stack command is `docker compose up -d --build` (or `docker compose up -d` after building). Both services use `campus_network`, and Compose forwards the Entra and campus-coordinate environment variables. Run migrations with `docker compose exec api npx prisma migrate deploy`. Seed only a disposable database from the host using `npx prisma db seed`; the production image does not copy the TypeScript seed source. Compose sets `NODE_ENV=production`, so use Bearer tokens instead of `x-user-id`.
 
 `nginx/default.conf` is a host deployment configuration, not a Compose service. It proxies `/events-api/` to port 5000 and requires the configured hostname and TLS certificates.
+
+## Azure production runbook
+
+The public API base URL is `https://campus-event-api.eastasia.cloudapp.azure.com/events-api/v1`. Its public health endpoint is `https://campus-event-api.eastasia.cloudapp.azure.com/events-api/v1/health`.
+
+On `campus-event-vm`, the system-assigned managed identity is granted the `Key Vault Secrets User` role on `campus-events-kv-2474`. The VM deployment script signs in with that identity, retrieves `POSTGRES-PASSWORD` into the mode-600 runtime file `/run/campus-event/postgres-password`, and starts the private PostgreSQL container. The API then retrieves `DATABASE-URL`, `JWT-SECRET`, and `PEER-API-KEY` from Key Vault before it imports Prisma. The four required Key Vault secret names are:
+
+- `DATABASE-URL`
+- `POSTGRES-PASSWORD`
+- `JWT-SECRET`
+- `PEER-API-KEY`
+
+`/etc/campus-event/config.env` contains only non-secret deployment identifiers: `KEY_VAULT_NAME`, `AZURE_AD_CLIENT_ID`, `AZURE_AD_TENANT_ID`, `AZURE_AD_AUDIENCE`, `CAMPUS_LATITUDE`, and `CAMPUS_LONGITUDE`. Do not create a production `.env` file and do not add a client secret to this file.
+
+From the checked-out repository on the VM, deploy an approved commit or tag by passing its exact Git ref:
+
+```bash
+./scripts/deploy.sh <git-ref>
+```
+
+The script fetches the ref, checks it out detached, builds the production image, applies Prisma migrations, starts the stack, and checks the loopback health endpoint. After DNS points at the VM and inbound HTTP/HTTPS are permitted, configure and validate TLS as root:
+
+```bash
+sudo ./scripts/configure-nginx.sh <certbot-email>
+```
+
+This script verifies DNS against the VM public IP, installs the HTTP ACME configuration, obtains the certificate, validates the HTTPS configuration, reloads Nginx only after `nginx -t`, and performs a Certbot renewal dry run.
 
 ## Authentication and roles
 
@@ -95,7 +122,7 @@ Public discovery and health require no credentials. Protected user routes accept
 | ORGANIZER | `22222222-2222-2222-2222-222222222222` |
 | ADMIN | `33333333-3333-3333-3333-333333333333` |
 
-The upstream `/auth/dev-token` route currently has no environment guard and can issue privileged demo tokens. It must be restricted by Member 1 before public deployment. This branch preserves the assigned auth code.
+`/auth/dev-token` is available only outside production for disposable local demonstrations. It is not mounted when `NODE_ENV=production`; production requests must use valid Microsoft Entra Bearer tokens.
 
 ## API reference
 
@@ -188,7 +215,16 @@ If Open-Meteo is unavailable, `GET /events/:id` still returns HTTP 200 with the 
 
 ## Postman workflow
 
-Import `postman/campus_events_api.postman_collection.json` as a v2.1 collection. Set `baseUrl` (default `http://localhost:5000/events-api/v1`) and `peerApiKey` locally. Run against a development database, in collection order. Seed `studentId`, `organizerId`, and `adminId` are supplied. Requests use `x-user-id` for development; to test production, replace those with valid role-specific Bearer tokens.
+Import `postman/campus_events_api.postman_collection.json` as a v2.1 collection. Set `baseUrl` (default `http://localhost:5000/events-api/v1`) and `peerApiKey` locally. Run against a development database, in collection order. Seed `studentId`, `organizerId`, and `adminId` are supplied. Requests use `x-user-id` for development.
+
+For production, set `baseUrl` to `https://campus-event-api.eastasia.cloudapp.azure.com/events-api/v1` and obtain a role-appropriate Microsoft Entra access token using Postman's **OAuth 2.0** Authorization Code grant with PKCE. The collection provides only these non-secret Entra variables:
+
+- `entraTenantId`: `c1f3dc23-b7f8-48d3-9b5d-2b12f158f01f`
+- `entraClientId`: `d16771d8-2e37-476a-be7c-63f4ed09c819`
+- `entraAudience`: `d16771d8-2e37-476a-be7c-63f4ed09c819`
+- `entraScope`: `api://d16771d8-2e37-476a-be7c-63f4ed09c819/access_as_user openid profile email`
+
+Use `https://login.microsoftonline.com/{{entraTenantId}}/oauth2/v2.0/authorize` as the authorization endpoint, `https://login.microsoftonline.com/{{entraTenantId}}/oauth2/v2.0/token` as the token endpoint, and `https://oauth.pstmn.io/v1/callback` as the callback URL. Do not configure client authentication or enter a client secret. Access and refresh tokens stay in the local Postman session and are never exported in this collection.
 
 The runner creates a uniquely named ongoing fixture at a unique venue, captures `eventId` and `bookingId`, verifies event weather, bookings, and peer responses, cancels the booking, and deletes its event last. A separate Room101 example demonstrates the requested URL. Date variables are generated at run time. Auth tests sync the seed student's existing name/email and set its role to STUDENT; run only on disposable seed data. The demo-token request creates a demo user. If a run is interrupted, delete its created event manually. No real keys are stored in the export.
 

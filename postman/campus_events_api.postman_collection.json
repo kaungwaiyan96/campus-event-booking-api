@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Campus Events API \u2014 Member 3",
-    "description": "Run in order against disposable seeded development data. Set peerApiKey locally to match PEER_API_KEY. Uses x-user-id development auth. Creates fixture and cleans it up last.",
+    "description": "Run in order against disposable seeded development data. Set peerApiKey locally to match PEER_API_KEY. Uses x-user-id development auth. Creates fixture and cleans it up last. For production, set baseUrl to https://campus-event-api.eastasia.cloudapp.azure.com/events-api/v1 and use OAuth 2.0 Authorization Code with PKCE: authorization endpoint https://login.microsoftonline.com/{{entraTenantId}}/oauth2/v2.0/authorize, token endpoint https://login.microsoftonline.com/{{entraTenantId}}/oauth2/v2.0/token, scope {{entraScope}}, and callback https://oauth.pstmn.io/v1/callback. Do not enter a client secret or export access/refresh tokens or the production peer key.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,6 +13,26 @@
     {
       "key": "peerApiKey",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "entraTenantId",
+      "value": "c1f3dc23-b7f8-48d3-9b5d-2b12f158f01f",
+      "type": "string"
+    },
+    {
+      "key": "entraClientId",
+      "value": "d16771d8-2e37-476a-be7c-63f4ed09c819",
+      "type": "string"
+    },
+    {
+      "key": "entraAudience",
+      "value": "d16771d8-2e37-476a-be7c-63f4ed09c819",
+      "type": "string"
+    },
+    {
+      "key": "entraScope",
+      "value": "api://d16771d8-2e37-476a-be7c-63f4ed09c819/access_as_user openid profile email",
       "type": "string"
     },
     {
