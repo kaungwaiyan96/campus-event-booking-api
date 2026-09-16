@@ -20,7 +20,7 @@ export function AppShell({ children }: AppShellProps) {
           <nav aria-label="Primary">
             <a href="/">Events</a>
             {canViewBookings && <a href="/bookings">My Bookings</a>}
-            {canManageEvents && <a href="/manage-events">Manage Events</a>}
+            {canManageEvents && <a href="/manage/events">Manage Events</a>}
           </nav>
           <ProfileMenu />
         </div>

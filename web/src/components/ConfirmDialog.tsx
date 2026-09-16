@@ -5,6 +5,7 @@ interface ConfirmDialogProps {
   title: string;
   children: ReactNode;
   confirmLabel: string;
+  cancelLabel?: string;
   isConfirming?: boolean;
   fallbackFocusRef?: RefObject<HTMLElement | null>;
   onCancel(): void;
@@ -16,6 +17,7 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
+  cancelLabel = 'Keep booking',
   isConfirming = false,
   fallbackFocusRef,
   onCancel,
@@ -92,7 +94,7 @@ export function ConfirmDialog({
         <div className="confirm-dialog-content">{children}</div>
         <div className="dialog-actions">
           <button ref={cancelButton} type="button" className="button-secondary" onClick={onCancel} disabled={isConfirming}>
-            Keep booking
+            {cancelLabel}
           </button>
           <button type="button" onClick={onConfirm} disabled={isConfirming}>
             {isConfirming ? 'Cancelling…' : confirmLabel}
