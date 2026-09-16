@@ -93,6 +93,7 @@ describe('MyBookingsPage', () => {
     expect(screen.getAllByText('Cancelled')).toHaveLength(1);
     expect(screen.getByText('Campus Careers Talk')).toBeInTheDocument();
     expect(getMyBookings).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('heading', { name: /my bookings/i })).toHaveFocus();
   });
 
   it('shows a safe cancellation error when the request fails', async () => {

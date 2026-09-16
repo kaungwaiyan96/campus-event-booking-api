@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -6,6 +6,7 @@ interface ConfirmDialogProps {
   children: ReactNode;
   confirmLabel: string;
   isConfirming?: boolean;
+  fallbackFocusRef?: RefObject<HTMLElement | null>;
   onCancel(): void;
   onConfirm(): void;
 }
@@ -16,6 +17,7 @@ export function ConfirmDialog({
   children,
   confirmLabel,
   isConfirming = false,
+  fallbackFocusRef,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -30,14 +32,23 @@ export function ConfirmDialog({
       return;
     }
 
-    previouslyFocused.current?.focus();
+    if (previouslyFocused.current?.isConnected) {
+      previouslyFocused.current.focus();
+    } else {
+      fallbackFocusRef?.current?.focus();
+    }
     previouslyFocused.current = null;
-  }, [isOpen]);
+  }, [fallbackFocusRef, isOpen]);
+
+  useEffect(() => {
+    if (isOpen && isConfirming) {
+      dialog.current?.focus();
+    }
+  }, [isConfirming, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    cancelButton.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !isConfirming) {
         onCancel();
@@ -76,7 +87,7 @@ export function ConfirmDialog({
 
   return (
     <div className="dialog-backdrop">
-      <section ref={dialog} className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" onKeyDown={trapFocus}>
+      <section ref={dialog} className="confirm-dialog" role="dialog" aria-modal="true" aria-busy={isConfirming} aria-labelledby="confirm-dialog-title" tabIndex={isConfirming ? -1 : undefined} onKeyDown={trapFocus}>
         <h2 id="confirm-dialog-title">{title}</h2>
         <div className="confirm-dialog-content">{children}</div>
         <div className="dialog-actions">

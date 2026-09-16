@@ -23,6 +23,27 @@ function DialogExample() {
   );
 }
 
+function PendingDialogExample() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  return (
+    <>
+      <button type="button" onClick={() => setIsOpen(true)}>Cancel booking for Cloud Computing Workshop</button>
+      <ConfirmDialog
+        isOpen={isOpen}
+        title="Cancel booking"
+        confirmLabel="Confirm cancellation"
+        isConfirming={isConfirming}
+        onCancel={() => setIsOpen(false)}
+        onConfirm={() => setIsConfirming(true)}
+      >
+        <p>Are you sure?</p>
+      </ConfirmDialog>
+    </>
+  );
+}
+
 describe('ConfirmDialog', () => {
   afterEach(cleanup);
 
@@ -55,5 +76,22 @@ describe('ConfirmDialog', () => {
 
     expect(trigger).toHaveFocus();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('keeps keyboard focus inside the pending dialog when its actions are disabled', async () => {
+    const user = userEvent.setup();
+    render(<PendingDialogExample />);
+
+    await user.click(screen.getByRole('button', { name: /cancel booking for cloud/i }));
+    await user.click(screen.getByRole('button', { name: /confirm cancellation/i }));
+
+    const dialog = screen.getByRole('dialog', { name: /cancel booking/i });
+    expect(dialog).toHaveAttribute('aria-busy', 'true');
+    expect(dialog).toHaveFocus();
+
+    await user.tab();
+    expect(dialog).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(dialog).toHaveFocus();
   });
 });

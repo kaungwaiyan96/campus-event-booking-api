@@ -12,6 +12,7 @@ import { BookingCard } from '../features/bookings/BookingCard';
 export function MyBookingsPage() {
   const client = useApi();
   const clientRef = useRef(client);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const requestVersion = useRef(0);
   const { notify } = useToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -69,7 +70,7 @@ export function MyBookingsPage() {
     <section className="bookings-page" aria-labelledby="my-bookings-title">
       <header>
         <p className="eyebrow">Student services</p>
-        <h1 id="my-bookings-title">My bookings</h1>
+        <h1 ref={headingRef} id="my-bookings-title" tabIndex={-1}>My bookings</h1>
         <p>Review the campus events you have reserved.</p>
       </header>
       {bookings.length === 0 ? (
@@ -84,6 +85,7 @@ export function MyBookingsPage() {
         title="Cancel booking"
         confirmLabel="Confirm cancellation"
         isConfirming={isCancelling}
+        fallbackFocusRef={headingRef}
         onCancel={() => setSelectedBooking(null)}
         onConfirm={() => void confirmCancellation()}
       >
