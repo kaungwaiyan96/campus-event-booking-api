@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -42,3 +42,41 @@ for (const script of ['scripts/deploy.sh', 'scripts/start-production.sh', 'scrip
     assert.match(result.stdout, /Usage:/);
   });
 }
+
+test('frontend deployment assets preserve the HTTPS API and serve a cache-safe SPA release', () => {
+  const nginxConfig = readFileSync('nginx/default.conf', 'utf8');
+  const deployWebScript = readFileSync('scripts/deploy-web.sh', 'utf8');
+  const dockerfile = readFileSync('web/Dockerfile', 'utf8');
+  const httpsServer = nginxConfig.slice(nginxConfig.indexOf('listen 443 ssl'));
+
+  assert.match(nginxConfig, /root \/var\/www\/campus-event\/current;/);
+  assert.match(nginxConfig, /try_files \$uri \$uri\/ \/index\.html;/);
+  assert.match(nginxConfig, /location \/events-api\//);
+  assert.ok(httpsServer.indexOf('location /events-api/') < httpsServer.indexOf('location / {'));
+  assert.match(nginxConfig, /location ~\* \^\/assets\//);
+  assert.match(nginxConfig, /max-age=31536000, immutable/);
+  assert.match(nginxConfig, /location = \/index\.html/);
+  assert.match(nginxConfig, /no-cache, no-store, must-revalidate/);
+
+  assert.match(dockerfile, /FROM node:22-alpine AS build/);
+  assert.match(dockerfile, /RUN npm run test && npm run build/);
+  assert.match(dockerfile, /FROM scratch AS export/);
+  assert.match(dockerfile, /COPY --from=build \/app\/dist \/$/m);
+
+  assert.match(deployWebScript, /Usage: \.\/scripts\/deploy-web\.sh <40-char-sha> <spa-client-id>/);
+  assert.match(deployWebScript, /\[\[ \$# -ne 2 \]\]/);
+  assert.match(deployWebScript, /\[\[ \$EUID -eq 0 \]\]/);
+  assert.match(deployWebScript, /\^\[0-9a-f\]\{40\}\$/);
+  assert.match(deployWebScript, /git rev-parse HEAD/);
+  assert.match(deployWebScript, /docker buildx build/);
+  assert.match(deployWebScript, /--target export/);
+  assert.match(deployWebScript, /--output "type=local,dest=\$STAGING_DIR"/);
+  assert.match(deployWebScript, /chmod 755 "\$STAGING_DIR"/);
+  assert.match(deployWebScript, /sudo install -d -m 755/);
+  assert.match(deployWebScript, /sudo ln -sfnT/);
+  assert.match(deployWebScript, /nginx -t/);
+  assert.match(deployWebScript, /systemctl reload nginx/);
+  assert.match(deployWebScript, /ENTRA_API_SCOPE=api:\/\/d16771d8-2e37-476a-be7c-63f4ed09c819\/access_as_user/);
+  assert.doesNotMatch(deployWebScript, /docker compose/);
+  assert.doesNotMatch(deployWebScript, /(?:CLIENT_SECRET|JWT_SECRET|PEER_API_KEY|DATABASE_URL|POSTGRES_PASSWORD|KEY_VAULT)/);
+});

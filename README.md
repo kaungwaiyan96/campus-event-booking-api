@@ -83,7 +83,7 @@ Keep `.env` and real keys out of Git. The production VM uses its system-assigned
 
 The intended full-stack command is `docker compose up -d --build` (or `docker compose up -d` after building). Both services use `campus_network`, and Compose forwards the Entra and campus-coordinate environment variables. Run migrations with `docker compose exec api npx prisma migrate deploy`. Seed only a disposable database from the host using `npx prisma db seed`; the production image does not copy the TypeScript seed source. Compose sets `NODE_ENV=production`, so use Bearer tokens instead of `x-user-id`.
 
-`nginx/default.conf` is a host deployment configuration, not a Compose service. It proxies `/events-api/` to port 5000 and requires the configured hostname and TLS certificates.
+`nginx/default.conf` is a host deployment configuration, not a Compose service. It serves the web app at `/`, proxies `/events-api/` to port 5000, and requires the configured hostname and TLS certificates.
 
 ## Azure production runbook
 
@@ -111,6 +111,22 @@ sudo ./scripts/configure-nginx.sh <certbot-email>
 ```
 
 This script verifies DNS against the VM public IP, installs the HTTP ACME configuration, obtains the certificate, validates the HTTPS configuration, reloads Nginx only after `nginx -t`, and performs a Certbot renewal dry run.
+
+### Static web release
+
+The React app is a separate package in `web/`. Copy `web/.env.example` to ignored `web/.env.local`, provide only the public SPA registration ID, then run it locally:
+
+```bash
+npm run web:dev
+```
+
+On the VM, first check out the approved exact 40-character commit SHA with the existing API deployment workflow. From that checked-out repository, build and publish the matching static release:
+
+```bash
+./scripts/deploy-web.sh <40-char-sha> <spa-client-id>
+```
+
+The script refuses a SHA other than the checked-out `HEAD`, builds the `web/` package with Docker BuildKit, exports a versioned release under `/var/www/campus-event/releases/`, then switches `/var/www/campus-event/current` with Linux `ln -sfnT` behavior before validating and reloading Nginx. It accepts exactly those two public arguments; the tenant, API scope, API origin, and HTTPS redirect URI are fixed in the script. It does not read Key Vault, change API containers, remove previous releases, or accept application secrets. Vite assets under `/assets/` are immutable-cached, while `index.html` remains uncached so a browser receives the current entry point after a release.
 
 ## Authentication and roles
 
