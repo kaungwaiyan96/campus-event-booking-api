@@ -53,10 +53,11 @@ describe('ConfirmDialog', () => {
     render(<DialogExample />);
 
     await user.click(screen.getByRole('button', { name: /cancel booking for cloud/i }));
+    const heading = screen.getByRole('heading', { name: /cancel booking/i });
     const keepBooking = screen.getByRole('button', { name: /keep booking/i });
     const confirmCancellation = screen.getByRole('button', { name: /confirm cancellation/i });
 
-    expect(keepBooking).toHaveFocus();
+    expect(heading).toHaveFocus();
     await user.tab({ shift: true });
     expect(confirmCancellation).toHaveFocus();
     await user.tab();

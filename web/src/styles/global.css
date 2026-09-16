@@ -13,6 +13,10 @@ body {
   margin: 0;
 }
 
+body.dialog-open {
+  overflow: hidden;
+}
+
 a {
   color: inherit;
 }
@@ -58,16 +62,21 @@ textarea:focus-visible {
 }
 
 nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target-min);
   color: var(--color-sky-700);
   font-weight: 600;
 }
 
 nav {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-4);
 }
 
 button {
+  min-height: var(--touch-target-min);
   padding: var(--space-2) var(--space-3);
   color: var(--surface);
   font: inherit;
@@ -310,6 +319,22 @@ main {
 .booking-presentation {
   display: flex;
   justify-content: flex-start;
+}
+
+.not-found-page {
+  display: grid;
+  max-width: 40rem;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.not-found-page h1,
+.not-found-page p {
+  margin: 0;
 }
 
 .booking-seam {
@@ -630,6 +655,22 @@ button.button-danger {
 }
 
 @media (max-width: 40rem) {
+  .page-container {
+    width: min(100% - (2 * var(--space-4)), var(--page-width));
+  }
+
+  .header-content {
+    align-items: stretch;
+    flex-direction: column;
+    padding-block: var(--space-3);
+  }
+
+  .header-content nav,
+  .profile-menu,
+  .profile-menu-error {
+    justify-content: space-between;
+  }
+
   main {
     padding-block: var(--space-6);
   }
@@ -663,6 +704,18 @@ button.button-danger {
   .check-field,
   .filter-actions {
     align-items: center;
+  }
+
+  .filter-actions,
+  .dialog-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filter-actions button,
+  .dialog-actions button,
+  .managed-event-actions button {
+    width: 100%;
   }
 }
 

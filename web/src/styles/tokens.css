@@ -13,6 +13,7 @@
   --focus-ring: var(--color-sky-500);
   --radius-card: 0.75rem;
   --radius-pill: 999px;
+  --touch-target-min: 2.75rem;
   --shadow-card: 0 10px 24px rgb(16 42 67 / 0.08);
   --space-1: 0.25rem;
   --space-2: 0.5rem;

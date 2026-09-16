@@ -1,4 +1,5 @@
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -27,13 +28,34 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const cancelButton = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       previouslyFocused.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      cancelButton.current?.focus();
-      return;
+      heading.current?.focus();
+      const background = Array.from(document.body.children).filter((element) => !element.contains(dialog.current));
+      const previous = background.map((element) => ({
+        element,
+        ariaHidden: element.getAttribute('aria-hidden'),
+        inert: (element as HTMLElement).inert,
+      }));
+
+      previous.forEach(({ element }) => {
+        (element as HTMLElement).inert = true;
+        element.setAttribute('aria-hidden', 'true');
+      });
+      document.body.classList.add('dialog-open');
+
+      return () => {
+        previous.forEach(({ element, ariaHidden, inert }) => {
+          (element as HTMLElement).inert = inert;
+          if (ariaHidden === null) element.removeAttribute('aria-hidden');
+          else element.setAttribute('aria-hidden', ariaHidden);
+        });
+        document.body.classList.remove('dialog-open');
+      };
     }
 
     if (previouslyFocused.current?.isConnected) {
@@ -80,7 +102,7 @@ export function ConfirmDialog({
     const last = focusable[focusable.length - 1];
     const current = document.activeElement;
 
-    if (event.shiftKey && (current === first || !dialog.current?.contains(current))) {
+    if (event.shiftKey && (current === first || current === heading.current || !dialog.current?.contains(current))) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && (current === last || !dialog.current?.contains(current))) {
@@ -89,10 +111,10 @@ export function ConfirmDialog({
     }
   };
 
-  return (
+  return createPortal(
     <div className="dialog-backdrop">
       <section ref={dialog} className="confirm-dialog" role="dialog" aria-modal="true" aria-busy={isConfirming} aria-labelledby="confirm-dialog-title" tabIndex={isConfirming ? -1 : undefined} onKeyDown={trapFocus}>
-        <h2 id="confirm-dialog-title">{title}</h2>
+        <h2 ref={heading} id="confirm-dialog-title" tabIndex={-1}>{title}</h2>
         <div className="confirm-dialog-content">{children}</div>
         <div className="dialog-actions">
           <button ref={cancelButton} type="button" className="button-secondary" onClick={onCancel} disabled={isConfirming}>
@@ -103,6 +125,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
