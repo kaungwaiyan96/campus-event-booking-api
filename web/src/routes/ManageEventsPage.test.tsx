@@ -148,6 +148,30 @@ describe('ManageEventsPage', () => {
     expect(createEvent).not.toHaveBeenCalled();
   });
 
+  it('treats the event form as a modal: it portals, focuses its heading, traps focus, and restores its trigger', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Cloud Computing Workshop');
+    const trigger = screen.getByRole('button', { name: /create event/i });
+    const applicationRoot = screen.getByRole('heading', { name: /manage events/i }).closest('section')?.parentElement;
+
+    await user.click(trigger);
+
+    const dialog = screen.getByRole('dialog', { name: /create event/i });
+    const heading = screen.getByRole('heading', { name: /create event/i });
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
+    expect(applicationRoot).toHaveAttribute('aria-hidden', 'true');
+    expect(heading).toHaveFocus();
+
+    await user.tab({ shift: true });
+    expect(screen.getByRole('button', { name: /^create event$/i })).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: /create event/i })).not.toBeInTheDocument();
+    expect(applicationRoot).not.toHaveAttribute('aria-hidden');
+    expect(trigger).toHaveFocus();
+  });
+
   it('creates an event with ISO datetimes and refreshes the management list', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -229,6 +253,30 @@ describe('ManageEventsPage', () => {
     expect(within(screen.getByRole('dialog', { name: /cloud computing workshop/i })).getByText(/booked/i)).toBeInTheDocument();
   });
 
+  it('treats the attendee list as a modal and restores focus after Escape', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Cloud Computing Workshop');
+    const trigger = screen.getByRole('button', { name: /view attendees for cloud computing workshop/i });
+    const applicationRoot = screen.getByRole('heading', { name: /manage events/i }).closest('section')?.parentElement;
+
+    await user.click(trigger);
+
+    const dialog = screen.getByRole('dialog', { name: /cloud computing workshop/i });
+    const heading = within(dialog).getByRole('heading', { name: /cloud computing workshop/i });
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
+    expect(applicationRoot).toHaveAttribute('aria-hidden', 'true');
+    expect(heading).toHaveFocus();
+
+    await user.tab({ shift: true });
+    expect(screen.getByRole('link', { name: 'student@campus.edu' })).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: /cloud computing workshop/i })).not.toBeInTheDocument();
+    expect(applicationRoot).not.toHaveAttribute('aria-hidden');
+    expect(trigger).toHaveFocus();
+  });
+
   it('keeps the newest attendee request when switching events before the first request resolves', async () => {
     const user = userEvent.setup();
     const first = deferred<Array<{ bookingId: string; bookedAt: string; student: { id: string; name: string; email: string } }>>();
@@ -239,7 +287,7 @@ describe('ManageEventsPage', () => {
     await screen.findByText('Cloud Computing Workshop');
 
     await user.click(screen.getByRole('button', { name: /view attendees for cloud computing workshop/i }));
-    await user.click(screen.getByRole('button', { name: /view attendees for guest lecture/i }));
+    await user.click(screen.getByRole('button', { name: /view attendees for guest lecture/i, hidden: true }));
     await act(async () => {
       second.resolve([{ bookingId: 'booking-2', bookedAt: '2026-09-19T10:00:00.000Z', student: { id: 'student-2', name: 'Student Two', email: 'student-two@campus.edu' } }]);
       await Promise.resolve();

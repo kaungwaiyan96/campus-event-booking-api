@@ -1,5 +1,6 @@
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import type { Attendee, EventSummary } from '../../api/types';
+import { useModalDialog } from '../../components/useModalDialog';
 
 interface AttendeeDialogProps {
   event: EventSummary | null;
@@ -14,58 +15,19 @@ function formatDateTime(value: string): string {
 }
 
 export function AttendeeDialog({ event, attendees, status, onClose, onRetry }: AttendeeDialogProps) {
-  const closeButton = useRef<HTMLButtonElement>(null);
-  const trigger = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!event) {
-      trigger.current?.focus();
-      trigger.current = null;
-      return;
-    }
-    trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    closeButton.current?.focus();
-  }, [event]);
-
-  useEffect(() => {
-    if (!event) return;
-    const onKeyDown = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [event, onClose]);
-
-  const trapFocus = (keyboardEvent: ReactKeyboardEvent<HTMLElement>) => {
-    if (keyboardEvent.key !== 'Tab') return;
-    const focusable = keyboardEvent.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
-    if (!focusable.length) {
-      keyboardEvent.preventDefault();
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const current = document.activeElement;
-    if (keyboardEvent.shiftKey && (current === first || !keyboardEvent.currentTarget.contains(current))) {
-      keyboardEvent.preventDefault();
-      last.focus();
-    } else if (!keyboardEvent.shiftKey && (current === last || !keyboardEvent.currentTarget.contains(current))) {
-      keyboardEvent.preventDefault();
-      first.focus();
-    }
-  };
+  const { dialogRef, headingRef, trapFocus } = useModalDialog({ isOpen: Boolean(event), onClose });
 
   if (!event) return null;
 
-  return (
+  return createPortal(
     <div className="dialog-backdrop">
-      <section className="attendee-dialog" role="dialog" aria-modal="true" aria-labelledby="attendee-dialog-title" onKeyDown={trapFocus}>
+      <section ref={dialogRef} className="attendee-dialog" role="dialog" aria-modal="true" aria-labelledby="attendee-dialog-title" onKeyDown={trapFocus}>
         <div className="dialog-heading">
           <div>
             <p className="eyebrow">Event attendees</p>
-            <h2 id="attendee-dialog-title">{event.title}</h2>
+            <h2 ref={headingRef} id="attendee-dialog-title" tabIndex={-1}>{event.title}</h2>
           </div>
-          <button ref={closeButton} type="button" className="button-secondary" onClick={onClose}>Close attendees</button>
+          <button type="button" className="button-secondary" onClick={onClose}>Close attendees</button>
         </div>
         {status === 'loading' && <p role="status">Loading attendees…</p>}
         {status === 'error' && (
@@ -86,6 +48,7 @@ export function AttendeeDialog({ event, attendees, status, onClose, onRetry }: A
           </ul>
         ) : <p>No attendees have booked this event yet.</p>)}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

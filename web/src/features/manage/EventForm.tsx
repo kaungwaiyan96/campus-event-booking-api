@@ -1,5 +1,7 @@
-import { cloneElement, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, useEffect, useState, type FormEvent, type ReactElement, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { EventInput, EventSummary } from '../../api/types';
+import { useModalDialog } from '../../components/useModalDialog';
 
 interface EventFormProps {
   event?: EventSummary | null;
@@ -62,31 +64,15 @@ function validate(values: FormValues): FormErrors {
 }
 
 export function EventForm({ event, isSaving, onCancel, onSubmit }: EventFormProps) {
-  const titleInput = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<FormValues>(() => initialValues(event));
   const [errors, setErrors] = useState<FormErrors>({});
   const isEditing = Boolean(event);
+  const { dialogRef, headingRef, trapFocus } = useModalDialog({ isOpen: true, isPending: isSaving, onClose: onCancel });
 
   useEffect(() => {
     setValues(initialValues(event));
     setErrors({});
   }, [event]);
-
-  useEffect(() => {
-    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    titleInput.current?.focus();
-    return () => {
-      if (previouslyFocused?.isConnected) previouslyFocused.focus();
-    };
-  }, []);
-
-  useEffect(() => {
-    const onKeyDown = (keyboardEvent: KeyboardEvent) => {
-      if (keyboardEvent.key === 'Escape' && !isSaving) onCancel();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isSaving, onCancel]);
 
   const setValue = (field: keyof FormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -111,34 +97,15 @@ export function EventForm({ event, isSaving, onCancel, onSubmit }: EventFormProp
     });
   };
 
-  const trapFocus = (keyboardEvent: ReactKeyboardEvent<HTMLElement>) => {
-    if (keyboardEvent.key !== 'Tab') return;
-    const focusable = keyboardEvent.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
-    if (!focusable.length) {
-      keyboardEvent.preventDefault();
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const current = document.activeElement;
-    if (keyboardEvent.shiftKey && (current === first || !keyboardEvent.currentTarget.contains(current))) {
-      keyboardEvent.preventDefault();
-      last.focus();
-    } else if (!keyboardEvent.shiftKey && (current === last || !keyboardEvent.currentTarget.contains(current))) {
-      keyboardEvent.preventDefault();
-      first.focus();
-    }
-  };
-
-  return (
+  return createPortal(
     <div className="dialog-backdrop">
-      <section className="event-form-dialog" role="dialog" aria-modal="true" aria-labelledby="event-form-dialog-title" onKeyDown={trapFocus}>
+      <section ref={dialogRef} className="event-form-dialog" role="dialog" aria-modal="true" aria-busy={isSaving} aria-labelledby="event-form-dialog-title" tabIndex={isSaving ? -1 : undefined} onKeyDown={trapFocus}>
         <header>
           <p className="eyebrow">Event administration</p>
-          <h2 id="event-form-dialog-title">{isEditing ? 'Edit event' : 'Create event'}</h2>
+          <h2 ref={headingRef} id="event-form-dialog-title" tabIndex={-1}>{isEditing ? 'Edit event' : 'Create event'}</h2>
         </header>
         <form className="event-form" noValidate onSubmit={(submit)}>
-          <Field label="Title" error={errors.title}><input ref={titleInput} value={values.title} onChange={(input) => setValue('title', input.target.value)} /></Field>
+          <Field label="Title" error={errors.title}><input value={values.title} onChange={(input) => setValue('title', input.target.value)} /></Field>
           <Field label="Description" error={errors.description}><textarea value={values.description} onChange={(input) => setValue('description', input.target.value)} /></Field>
           <Field label="Venue name" error={errors.venueName}><input value={values.venueName} onChange={(input) => setValue('venueName', input.target.value)} /></Field>
           <Field label="Venue address" error={errors.venueAddress}><input value={values.venueAddress} onChange={(input) => setValue('venueAddress', input.target.value)} /></Field>
@@ -152,7 +119,8 @@ export function EventForm({ event, isSaving, onCancel, onSubmit }: EventFormProp
           </div>
         </form>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
