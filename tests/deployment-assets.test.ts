@@ -102,7 +102,11 @@ test('frontend deployment assets preserve the HTTPS API and serve a cache-safe S
   const nginxCheck = deployWebScript.indexOf('sudo nginx -t', newReleaseLink);
   const nginxReload = deployWebScript.indexOf('sudo systemctl reload nginx', nginxCheck);
   const completedSwitch = deployWebScript.indexOf('RELEASE_SWITCHED=false', nginxReload);
+  const stagingCreation = deployWebScript.indexOf('STAGING_DIR="$(mktemp -d');
+  const cleanupTrap = deployWebScript.indexOf('trap cleanup EXIT');
+  const priorReleaseCheck = deployWebScript.indexOf('PREVIOUS_TARGET=""');
   assert.ok(newReleaseLink >= 0 && nginxCheck > newReleaseLink && nginxReload > nginxCheck && completedSwitch > nginxReload);
+  assert.ok(stagingCreation >= 0 && cleanupTrap > stagingCreation && cleanupTrap < priorReleaseCheck);
   assert.match(deployWebScript, /ENTRA_API_SCOPE=api:\/\/d16771d8-2e37-476a-be7c-63f4ed09c819\/access_as_user/);
   assert.doesNotMatch(deployWebScript, /docker compose/);
   assert.doesNotMatch(deployWebScript, /(?:CLIENT_SECRET|JWT_SECRET|PEER_API_KEY|DATABASE_URL|POSTGRES_PASSWORD|KEY_VAULT)/);

@@ -53,6 +53,14 @@ fi
 RELEASE_DIR="$RELEASE_ROOT/releases/$GIT_SHA"
 STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/campus-event-web-$GIT_SHA.XXXXXX")"
 readonly STAGING_DIR
+
+cleanup() {
+  if [[ -d "$STAGING_DIR" ]]; then
+    rm -rf -- "$STAGING_DIR"
+  fi
+}
+trap cleanup EXIT
+
 chmod 755 "$STAGING_DIR"
 
 PREVIOUS_TARGET=""
@@ -73,12 +81,6 @@ fi
 
 RELEASE_SWITCHED=false
 
-cleanup() {
-  if [[ -d "$STAGING_DIR" ]]; then
-    rm -rf -- "$STAGING_DIR"
-  fi
-}
-
 rollback_release() {
   local status=$?
   trap - ERR
@@ -97,7 +99,6 @@ rollback_release() {
   return "$status"
 }
 
-trap cleanup EXIT
 trap rollback_release ERR
 
 docker buildx build \
