@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,6 +61,16 @@ const otherEvent: EventSummary = {
 
 function renderPage() {
   return render(<MemoryRouter><ToastProvider><ManageEventsPage /></ToastProvider></MemoryRouter>);
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  let reject: (reason?: unknown) => void = () => undefined;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
 }
 
 async function openCreateForm(user: ReturnType<typeof userEvent.setup>) {
@@ -188,6 +198,24 @@ describe('ManageEventsPage', () => {
     expect(screen.getByRole('heading', { name: /manage events/i })).toHaveFocus();
   });
 
+  it('uses an accurate pending deletion label while the confirmed delete request is in flight', async () => {
+    const user = userEvent.setup();
+    const pending = deferred<{ message: string }>();
+    deleteEvent.mockImplementationOnce(() => pending.promise);
+    renderPage();
+    await screen.findByText('Cloud Computing Workshop');
+
+    await user.click(screen.getByRole('button', { name: /delete cloud computing workshop/i }));
+    await user.click(screen.getByRole('button', { name: /^delete event$/i }));
+    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
+
+    await act(async () => {
+      pending.resolve({ message: 'Event deleted.' });
+      await Promise.resolve();
+    });
+    expect(await screen.findByText(/event deleted/i)).toBeInTheDocument();
+  });
+
   it('loads attendees only after the attendee dialog opens and shows their details', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -199,5 +227,65 @@ describe('ManageEventsPage', () => {
     expect(await screen.findByText('student@campus.edu')).toBeInTheDocument();
     expect(screen.getByText('Student One')).toBeInTheDocument();
     expect(within(screen.getByRole('dialog', { name: /cloud computing workshop/i })).getByText(/booked/i)).toBeInTheDocument();
+  });
+
+  it('keeps the newest attendee request when switching events before the first request resolves', async () => {
+    const user = userEvent.setup();
+    const first = deferred<Array<{ bookingId: string; bookedAt: string; student: { id: string; name: string; email: string } }>>();
+    const second = deferred<Array<{ bookingId: string; bookedAt: string; student: { id: string; name: string; email: string } }>>();
+    authenticatedProfile = { ...authenticatedProfile, role: 'ADMIN', id: 'admin-1' };
+    getAttendees.mockImplementationOnce(() => first.promise).mockImplementationOnce(() => second.promise);
+    renderPage();
+    await screen.findByText('Cloud Computing Workshop');
+
+    await user.click(screen.getByRole('button', { name: /view attendees for cloud computing workshop/i }));
+    await user.click(screen.getByRole('button', { name: /view attendees for guest lecture/i }));
+    await act(async () => {
+      second.resolve([{ bookingId: 'booking-2', bookedAt: '2026-09-19T10:00:00.000Z', student: { id: 'student-2', name: 'Student Two', email: 'student-two@campus.edu' } }]);
+      await Promise.resolve();
+    });
+    expect(await screen.findByText('student-two@campus.edu')).toBeInTheDocument();
+
+    await act(async () => {
+      first.resolve([{ bookingId: 'booking-1', bookedAt: '2026-09-18T10:00:00.000Z', student: { id: 'student-1', name: 'Student One', email: 'student@campus.edu' } }]);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.queryByText('student@campus.edu')).not.toBeInTheDocument());
+    expect(screen.getByRole('dialog', { name: /guest lecture/i })).toBeInTheDocument();
+  });
+
+  it('does not reopen or populate attendees after the dialog closes during a request', async () => {
+    const user = userEvent.setup();
+    const pending = deferred<Array<{ bookingId: string; bookedAt: string; student: { id: string; name: string; email: string } }>>();
+    getAttendees.mockImplementationOnce(() => pending.promise);
+    renderPage();
+    await screen.findByText('Cloud Computing Workshop');
+
+    await user.click(screen.getByRole('button', { name: /view attendees for cloud computing workshop/i }));
+    await user.click(screen.getByRole('button', { name: /close attendees/i }));
+    await act(async () => {
+      pending.resolve([{ bookingId: 'booking-1', bookedAt: '2026-09-18T10:00:00.000Z', student: { id: 'student-1', name: 'Student One', email: 'student@campus.edu' } }]);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.queryByText('student@campus.edu')).not.toBeInTheDocument();
+  });
+
+  it('shows an attendee error and retries only when the organizer requests it', async () => {
+    const user = userEvent.setup();
+    getAttendees.mockRejectedValueOnce(new Error('Unavailable')).mockResolvedValueOnce([
+      { bookingId: 'booking-1', bookedAt: '2026-09-18T10:00:00.000Z', student: { id: 'student-1', name: 'Student One', email: 'student@campus.edu' } },
+    ]);
+    renderPage();
+    await screen.findByText('Cloud Computing Workshop');
+
+    await user.click(screen.getByRole('button', { name: /view attendees for cloud computing workshop/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not load attendees/i);
+    expect(getAttendees).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(getAttendees).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText('student@campus.edu')).toBeInTheDocument();
   });
 });

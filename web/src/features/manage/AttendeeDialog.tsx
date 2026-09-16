@@ -6,13 +6,14 @@ interface AttendeeDialogProps {
   attendees: Attendee[];
   status: 'loading' | 'success' | 'error';
   onClose(): void;
+  onRetry(): void;
 }
 
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
-export function AttendeeDialog({ event, attendees, status, onClose }: AttendeeDialogProps) {
+export function AttendeeDialog({ event, attendees, status, onClose, onRetry }: AttendeeDialogProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
 
@@ -67,7 +68,12 @@ export function AttendeeDialog({ event, attendees, status, onClose }: AttendeeDi
           <button ref={closeButton} type="button" className="button-secondary" onClick={onClose}>Close attendees</button>
         </div>
         {status === 'loading' && <p role="status">Loading attendees…</p>}
-        {status === 'error' && <p role="alert">We could not load attendees. Please close this dialog and try again.</p>}
+        {status === 'error' && (
+          <div className="attendee-error" role="alert">
+            <p>We could not load attendees. Please try again.</p>
+            <button type="button" className="button-secondary" onClick={onRetry}>Try again</button>
+          </div>
+        )}
         {status === 'success' && (attendees.length ? (
           <ul className="attendee-list">
             {attendees.map((attendee) => (

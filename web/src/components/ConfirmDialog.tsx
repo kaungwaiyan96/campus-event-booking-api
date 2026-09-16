@@ -6,6 +6,7 @@ interface ConfirmDialogProps {
   children: ReactNode;
   confirmLabel: string;
   cancelLabel?: string;
+  pendingLabel?: string;
   isConfirming?: boolean;
   fallbackFocusRef?: RefObject<HTMLElement | null>;
   onCancel(): void;
@@ -18,6 +19,7 @@ export function ConfirmDialog({
   children,
   confirmLabel,
   cancelLabel = 'Keep booking',
+  pendingLabel = 'Cancelling…',
   isConfirming = false,
   fallbackFocusRef,
   onCancel,
@@ -97,7 +99,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </button>
           <button type="button" onClick={onConfirm} disabled={isConfirming}>
-            {isConfirming ? 'Cancelling…' : confirmLabel}
+            {isConfirming ? pendingLabel : confirmLabel}
           </button>
         </div>
       </section>

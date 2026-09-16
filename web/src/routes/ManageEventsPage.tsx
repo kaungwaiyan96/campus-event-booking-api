@@ -25,6 +25,7 @@ export function ManageEventsPage() {
   const { notify } = useToast();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const requestVersion = useRef(0);
+  const attendeeRequestVersion = useRef(0);
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [formEvent, setFormEvent] = useState<EventSummary | null | undefined>(undefined);
@@ -60,17 +61,27 @@ export function ManageEventsPage() {
     return <Notice tone="error" title="You do not have permission to manage events">Please return to the events page.</Notice>;
   }
 
-  const openAttendees = async (event: EventSummary) => {
+  const loadAttendees = async (event: EventSummary) => {
+    const version = ++attendeeRequestVersion.current;
     setAttendeeEvent(event);
     setAttendees([]);
     setAttendeeStatus('loading');
     try {
       const result = await getAttendees(client, event.id);
+      if (version !== attendeeRequestVersion.current) return;
       setAttendees(result);
       setAttendeeStatus('success');
     } catch {
+      if (version !== attendeeRequestVersion.current) return;
       setAttendeeStatus('error');
     }
+  };
+
+  const closeAttendees = () => {
+    attendeeRequestVersion.current += 1;
+    setAttendeeEvent(null);
+    setAttendees([]);
+    setAttendeeStatus('loading');
   };
 
   const saveEvent = async (input: EventInput) => {
@@ -124,7 +135,7 @@ export function ManageEventsPage() {
         <div className="managed-event-grid">
           {events.map((event) => {
             const canManage = isEventManageable(event, profile.id, profile.role);
-            return <ManagedEventCard key={event.id} event={event} canManage={canManage} onEdit={setFormEvent} onDelete={setEventToDelete} onViewAttendees={(selected) => void openAttendees(selected)} />;
+            return <ManagedEventCard key={event.id} event={event} canManage={canManage} onEdit={setFormEvent} onDelete={setEventToDelete} onViewAttendees={(selected) => void loadAttendees(selected)} />;
           })}
         </div>
       )}
@@ -134,6 +145,7 @@ export function ManageEventsPage() {
         title="Delete event"
         confirmLabel="Delete event"
         cancelLabel="Keep event"
+        pendingLabel="Deleting…"
         isConfirming={isDeleting}
         fallbackFocusRef={headingRef}
         onCancel={() => setEventToDelete(null)}
@@ -141,7 +153,13 @@ export function ManageEventsPage() {
       >
         <p>Delete <strong>{eventToDelete?.title}</strong>? Existing bookings will also be affected.</p>
       </ConfirmDialog>
-      <AttendeeDialog event={attendeeEvent} attendees={attendees} status={attendeeStatus} onClose={() => setAttendeeEvent(null)} />
+      <AttendeeDialog
+        event={attendeeEvent}
+        attendees={attendees}
+        status={attendeeStatus}
+        onClose={closeAttendees}
+        onRetry={() => attendeeEvent && void loadAttendees(attendeeEvent)}
+      />
     </section>
   );
 }

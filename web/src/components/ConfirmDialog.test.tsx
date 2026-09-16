@@ -34,6 +34,7 @@ function PendingDialogExample() {
         isOpen={isOpen}
         title="Cancel booking"
         confirmLabel="Confirm cancellation"
+        pendingLabel="Deleting…"
         isConfirming={isConfirming}
         onCancel={() => setIsOpen(false)}
         onConfirm={() => setIsConfirming(true)}
@@ -93,5 +94,15 @@ describe('ConfirmDialog', () => {
     expect(dialog).toHaveFocus();
     await user.tab({ shift: true });
     expect(dialog).toHaveFocus();
+  });
+
+  it('uses a caller-provided pending confirmation label', async () => {
+    const user = userEvent.setup();
+    render(<PendingDialogExample />);
+
+    await user.click(screen.getByRole('button', { name: /cancel booking for cloud/i }));
+    await user.click(screen.getByRole('button', { name: /confirm cancellation/i }));
+
+    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
   });
 });
