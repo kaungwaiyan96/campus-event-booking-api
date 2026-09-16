@@ -126,7 +126,7 @@ On the VM, first check out the approved exact 40-character commit SHA with the e
 ./scripts/deploy-web.sh <40-char-sha> <spa-client-id>
 ```
 
-The script refuses a SHA other than the checked-out `HEAD`, builds the `web/` package with Docker BuildKit, exports a versioned release under `/var/www/campus-event/releases/`, then switches `/var/www/campus-event/current` with Linux `ln -sfnT` behavior before validating and reloading Nginx. It accepts exactly those two public arguments; the tenant, API scope, API origin, and HTTPS redirect URI are fixed in the script. It does not read Key Vault, change API containers, remove previous releases, or accept application secrets. Vite assets under `/assets/` are immutable-cached, while `index.html` remains uncached so a browser receives the current entry point after a release.
+The script refuses a SHA other than the checked-out `HEAD`, builds the `web/` package with Docker BuildKit, exports a versioned release under `/var/www/campus-event/releases/`, then switches `/var/www/campus-event/current` with Linux `ln -sfnT` behavior before validating and reloading Nginx. If either post-switch Nginx step fails, it restores the previous validated release link. It accepts exactly those two public arguments; the tenant, API scope, API origin, and HTTPS redirect URI are fixed in the script. It does not read Key Vault, change API containers, remove previous releases, or accept application secrets. Vite assets under `/assets/` are immutable-cached, while `index.html` remains uncached so a browser receives the current entry point after a release.
 
 ## Authentication and roles
 

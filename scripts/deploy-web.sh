@@ -55,12 +55,50 @@ STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/campus-event-web-$GIT_SHA.XXXXXX")"
 readonly STAGING_DIR
 chmod 755 "$STAGING_DIR"
 
+PREVIOUS_TARGET=""
+if [[ -L "$CURRENT_LINK" ]]; then
+  if ! PREVIOUS_TARGET="$(readlink -e -- "$CURRENT_LINK")"; then
+    echo "The current web release link is broken." >&2
+    exit 1
+  fi
+
+  if [[ "$PREVIOUS_TARGET" != "$RELEASE_ROOT/releases/"* ]]; then
+    echo "The current web release link points outside the release directory." >&2
+    exit 1
+  fi
+elif [[ -e "$CURRENT_LINK" ]]; then
+  echo "The current web release path must be a symbolic link." >&2
+  exit 1
+fi
+
+RELEASE_SWITCHED=false
+
 cleanup() {
   if [[ -d "$STAGING_DIR" ]]; then
     rm -rf -- "$STAGING_DIR"
   fi
 }
+
+rollback_release() {
+  local status=$?
+  trap - ERR
+
+  if [[ "$RELEASE_SWITCHED" == true ]]; then
+    if [[ -n "$PREVIOUS_TARGET" ]]; then
+      if ! sudo ln -sfnT "$PREVIOUS_TARGET" "$CURRENT_LINK"; then
+        echo "Failed to restore the previous web release link." >&2
+      fi
+    elif ! sudo rm -f -- "$CURRENT_LINK"; then
+      echo "Failed to remove the new web release link." >&2
+    fi
+    RELEASE_SWITCHED=false
+  fi
+
+  return "$status"
+}
+
 trap cleanup EXIT
+trap rollback_release ERR
 
 docker buildx build \
   --file web/Dockerfile \
@@ -81,7 +119,10 @@ while IFS= read -r -d '' source_file; do
   sudo install -m 644 "$source_file" "$target_dir/$(basename "$relative_path")"
 done < <(find "$STAGING_DIR" -type f -print0)
 sudo ln -sfnT "$RELEASE_DIR" "$CURRENT_LINK"
+RELEASE_SWITCHED=true
 sudo nginx -t
 sudo systemctl reload nginx
+RELEASE_SWITCHED=false
+trap - ERR
 
 echo "Published web release $GIT_SHA at https://$HOSTNAME/"
