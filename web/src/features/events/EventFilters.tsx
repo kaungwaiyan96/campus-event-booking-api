@@ -20,13 +20,20 @@ export function EventFilters({ value, onChange, onApply, onClear }: EventFilters
 
   return (
     <form className="event-filters" aria-label="Event filters" onSubmit={submit}>
+      <div className="filters-heading">
+        <div>
+          <p className="eyebrow">Find your next event</p>
+          <h2>Browse by interest</h2>
+        </div>
+        <p>Search by topic, place, or date.</p>
+      </div>
       <div className="field-group field-search">
         <label htmlFor="event-search">Search events</label>
-        <input id="event-search" name="search" type="search" value={value.search ?? ''} onChange={updateTextField('search')} />
+        <input id="event-search" name="search" type="search" placeholder="Try ‘workshop’ or ‘career’" value={value.search ?? ''} onChange={updateTextField('search')} />
       </div>
       <div className="field-group">
         <label htmlFor="event-venue">Venue</label>
-        <input id="event-venue" name="venue" value={value.venue ?? ''} onChange={updateTextField('venue')} />
+        <input id="event-venue" name="venue" placeholder="Any venue" value={value.venue ?? ''} onChange={updateTextField('venue')} />
       </div>
       <div className="field-group">
         <label htmlFor="event-date">Date</label>

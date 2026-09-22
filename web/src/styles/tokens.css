@@ -1,20 +1,20 @@
 :root {
-  --color-sky-100: #e0f2fe;
+  --color-sky-100: #e7f5ff;
   --color-sky-500: #0ea5e9;
-  --color-sky-700: #0369a1;
-  --color-navy-900: #102a43;
-  --color-slate-600: #52606d;
-  --color-slate-200: #d9e2ec;
+  --color-sky-700: #075b96;
+  --color-navy-900: #142c43;
+  --color-slate-600: #5a6d7e;
+  --color-slate-200: #dae7f1;
   --surface: #ffffff;
-  --surface-muted: #f8fafc;
+  --surface-muted: #f5f9fd;
   --border: var(--color-slate-200);
   --text: var(--color-navy-900);
   --text-muted: var(--color-slate-600);
   --focus-ring: var(--color-sky-500);
-  --radius-card: 0.75rem;
+  --radius-card: 1rem;
   --radius-pill: 999px;
   --touch-target-min: 2.75rem;
-  --shadow-card: 0 10px 24px rgb(16 42 67 / 0.08);
+  --shadow-card: 0 16px 42px rgb(33 88 128 / 0.07);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;

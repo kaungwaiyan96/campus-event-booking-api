@@ -41,9 +41,9 @@ export function EventsPage() {
   return (
     <div className="events-page">
       <section className="hero" aria-labelledby="page-title">
-        <p className="eyebrow">University community</p>
+        <p className="eyebrow">Your campus, all in one place</p>
         <h1 id="page-title">Discover campus events</h1>
-        <p>Find lectures, activities, and gatherings across campus.</p>
+        <p>Find lectures, activities, and gatherings worth showing up for.</p>
       </section>
       <EventFilters
         value={draftFilters}
@@ -62,7 +62,18 @@ export function EventsPage() {
         </Notice>
       )}
       {status === 'success' && events.length === 0 && <EmptyState title="No events found">Try clearing or changing your filters.</EmptyState>}
-      {status === 'success' && events.length > 0 && <EventGrid events={events} />}
+      {status === 'success' && events.length > 0 && (
+        <div className="event-results">
+          <div className="results-heading">
+            <div>
+              <p className="eyebrow">Explore what is happening</p>
+              <h2>Campus events</h2>
+            </div>
+            <span className="results-count">{events.length} {events.length === 1 ? 'event' : 'events'}</span>
+          </div>
+          <EventGrid events={events} />
+        </div>
+      )}
     </div>
   );
 }
