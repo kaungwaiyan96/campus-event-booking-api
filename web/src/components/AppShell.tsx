@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { ProfileMenu } from './ProfileMenu';
 
@@ -17,11 +17,14 @@ export function AppShell({ children }: AppShellProps) {
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <header className="site-header">
         <div className="page-container header-content">
-          <Link className="brand" to="/">Campus Events</Link>
-          <nav aria-label="Primary">
-            <Link to="/">Events</Link>
-            {canViewBookings && <Link to="/bookings">My Bookings</Link>}
-            {canManageEvents && <Link to="/manage/events">Manage Events</Link>}
+          <Link className="brand" to="/">
+            <span className="brand-mark" aria-hidden="true"><span /></span>
+            <span>Campus <span className="brand-accent">Events</span></span>
+          </Link>
+          <nav className="primary-nav" aria-label="Primary">
+            <NavLink end to="/">Events</NavLink>
+            {canViewBookings && <NavLink to="/bookings">My Bookings</NavLink>}
+            {canManageEvents && <NavLink to="/manage/events">Manage Events</NavLink>}
           </nav>
           <ProfileMenu />
         </div>
