@@ -10,7 +10,9 @@ const msal = vi.hoisted(() => ({
   getActiveAccount: vi.fn(),
   getAllAccounts: vi.fn(),
   setActiveAccount: vi.fn(),
+  loginRedirect: vi.fn(),
   loginPopup: vi.fn(),
+  logoutRedirect: vi.fn(),
   logoutPopup: vi.fn(),
   acquireTokenSilent: vi.fn(),
   acquireTokenPopup: vi.fn(),
@@ -57,28 +59,37 @@ describe('AuthProvider', () => {
     vi.clearAllMocks();
     msal.getActiveAccount.mockReturnValue(null);
     msal.getAllAccounts.mockReturnValue([]);
-    msal.loginPopup.mockResolvedValue({ account });
+    msal.loginRedirect.mockResolvedValue(undefined);
+    msal.logoutRedirect.mockResolvedValue(undefined);
     msal.logoutPopup.mockResolvedValue(undefined);
     msal.acquireTokenSilent.mockResolvedValue({ accessToken: 'access-token' });
     api.getMyProfile.mockResolvedValue(organizerProfile);
     events.listEvents.mockResolvedValue([]);
   });
 
-  it('signs in, obtains the verified profile role, and signs out', async () => {
+  it('starts the Microsoft sign-in flow in the current tab', async () => {
     const user = userEvent.setup();
 
     renderWithAppProviders(<App />);
 
     await user.click(await screen.findByRole('button', { name: /sign in with microsoft/i }));
 
-    expect(msal.loginPopup).toHaveBeenCalledWith(expect.objectContaining({
+    expect(msal.loginRedirect).toHaveBeenCalledWith(expect.objectContaining({
       scopes: ['api://campus-events/access_as_user'],
     }));
-    expect(await screen.findByText('ORGANIZER')).toBeInTheDocument();
+    expect(screen.getByText('Checking your campus profile…')).toBeInTheDocument();
+    expect(api.getMyProfile).not.toHaveBeenCalled();
+  });
 
-    await user.click(screen.getByRole('button', { name: /sign out/i }));
+  it('starts the Microsoft sign-out flow in the current tab', async () => {
+    const user = userEvent.setup();
+    msal.getActiveAccount.mockReturnValue(account);
 
-    expect(msal.logoutPopup).toHaveBeenCalled();
+    renderWithAppProviders(<App />);
+
+    await user.click(await screen.findByRole('button', { name: /sign out/i }));
+
+    expect(msal.logoutRedirect).toHaveBeenCalledWith({ account });
     expect(screen.getByRole('button', { name: /sign in with microsoft/i })).toBeInTheDocument();
   });
 

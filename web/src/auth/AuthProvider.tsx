@@ -103,28 +103,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setStatus('loading');
 
     try {
-      const response = await msalInstance.loginPopup(loginRequest);
-      const account = response.account ?? msalInstance.getActiveAccount();
-
-      if (!account) {
-        setStatus('error');
-        return;
-      }
-
-      accountRef.current = account;
-      msalInstance.setActiveAccount(account);
-      await loadProfile();
+      await msalInstance.loginRedirect(loginRequest);
     } catch {
       setProfile(null);
       setStatus('error');
     }
-  }, [loadProfile]);
+  }, []);
 
   const signOut = useCallback(async () => {
     const account = accountRef.current ?? msalInstance.getActiveAccount();
 
     try {
-      await msalInstance.logoutPopup(account ? { account } : undefined);
+      await msalInstance.logoutRedirect(account ? { account } : undefined);
       profileRequestVersion.current += 1;
       accountRef.current = null;
       setProfile(null);
