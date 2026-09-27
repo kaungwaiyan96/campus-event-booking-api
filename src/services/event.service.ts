@@ -3,6 +3,8 @@ import prisma from '../config/prisma';
 import { AppError } from '../middlewares/error.middleware';
 import { CreateEventDTO, UpdateEventDTO, EventQueryFilters } from '../types/event.types';
 import { AuthUser } from '../middlewares/auth.middleware';
+import { config } from '../config/env';
+import { fetchExternalPublicData } from './externalApi.service';
 
 export class EventService {
   static async listEvents(filters: EventQueryFilters) {
@@ -96,10 +98,13 @@ export class EventService {
       throw new AppError(404, 'NOT_FOUND', 'Event not found.');
     }
 
+    const weather = await fetchExternalPublicData(config.campusCoordinates);
+
     return {
       ...event,
       confirmedBookings: event._count.bookings,
       remainingCapacity: Math.max(0, event.capacity - event._count.bookings),
+      weather,
     };
   }
 

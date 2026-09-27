@@ -1,58 +1,85 @@
-#!/bin/bash
-# ==============================================================================
-# Campus Event Management & Booking API - Production VPS Deployment Script
-# Designed for: Ubuntu Server 24.04 LTS (campus-event-vm on Azure)
-# Author: Mi Hnin Au Shwe Yee (Member 1 - Infra & Auth)
-# ==============================================================================
+#!/usr/bin/env bash
 
-set -e
+set -Eeuo pipefail
 
-echo "🚀 [1/6] Updating system packages & hardening UFW firewall..."
-sudo apt-get update && sudo apt-get upgrade -y
-sudo apt-get install -y ufw curl git nginx certbot python3-certbot-nginx
+CONFIG_FILE=/etc/campus-event/config.env
+COMPOSE_FILE=docker-compose.production.yml
+RUNTIME_DIR=/run/campus-event
+POSTGRES_PASSWORD_FILE="$RUNTIME_DIR/postgres-password"
 
-# Hardening: UFW Firewall rules
-sudo ufw allow OpenSSH
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw --force enable
+usage() {
+  echo "Usage: ./scripts/deploy.sh <git-ref>"
+}
 
-echo "🐳 [2/6] Installing Docker & Docker Compose Plugin..."
-if ! command -v docker &> /dev/null; then
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    sudo usermod -aG docker $USER
-    sudo rm get-docker.sh
+require_config() {
+  local variable
+  for variable in KEY_VAULT_NAME AZURE_AD_CLIENT_ID AZURE_AD_TENANT_ID AZURE_AD_AUDIENCE CAMPUS_LATITUDE CAMPUS_LONGITUDE; do
+    if [[ -z "${!variable:-}" ]]; then
+      echo "Missing required configuration: $variable" >&2
+      exit 1
+    fi
+  done
+}
+
+cleanup_failed_deploy() {
+  unset DATABASE_URL || true
+  rm -f "$POSTGRES_PASSWORD_FILE"
+}
+
+if [[ "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
 fi
 
-echo "📦 [3/6] Setting up project directory & pulling latest code..."
-APP_DIR="/home/azureuser/campus-event-booking-api"
-
-if [ ! -d "$APP_DIR" ]; then
-    git clone https://github.com/kaungwaiyan96/campus-event-booking-api.git "$APP_DIR"
+if [[ $# -ne 1 ]]; then
+  usage >&2
+  exit 1
 fi
 
-cd "$APP_DIR"
-git fetch origin
-git checkout main
-git pull origin main
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  echo "Missing configuration file: $CONFIG_FILE" >&2
+  exit 1
+fi
 
-echo "🏗️  [4/6] Building and running Docker containers..."
-sudo docker compose down --remove-orphans || true
-sudo docker compose up -d --build
+set -a
+# shellcheck source=/etc/campus-event/config.env
+. "$CONFIG_FILE"
+set +a
+require_config
 
-echo "🔄 [5/6] Running Prisma Database Migrations & Seeds inside container..."
-sleep 5 # Wait for postgres to be healthy
-sudo docker compose exec -T api npx prisma migrate deploy || true
+trap cleanup_failed_deploy ERR
 
-echo "🌐 [6/6] Configuring Nginx Reverse Proxy..."
-sudo cp nginx/default.conf /etc/nginx/sites-available/campus-event.conf
-sudo ln -sf /etc/nginx/sites-available/campus-event.conf /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
+az login --identity --allow-no-subscriptions >/dev/null
+sudo install -d -o "$USER" -g "$USER" -m 700 "$RUNTIME_DIR"
+az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name POSTGRES-PASSWORD --query value -o tsv > "$POSTGRES_PASSWORD_FILE"
+chmod 600 "$POSTGRES_PASSWORD_FILE"
+export POSTGRES_PASSWORD_FILE
 
-echo "✅ ====================================================================="
-echo "✅ Deployment completed successfully!"
-echo "✅ Health check: http://localhost:5000/events-api/v1/health"
-echo "✅ API Base URL: https://campus-event-api.southeastasia.cloudapp.azure.com/events-api/v1"
-echo "✅ ====================================================================="
+git fetch --prune origin
+git cat-file -e "$1^{commit}"
+git checkout --detach "$1"
+
+if docker image inspect campus-event-api:current >/dev/null 2>&1; then
+  docker tag campus-event-api:current campus-event-api:previous
+fi
+
+docker compose -f "$COMPOSE_FILE" up -d postgres
+docker compose -f "$COMPOSE_FILE" build api
+
+sudo install -d -o "$USER" -g "$USER" -m 700 /var/backups/campus-events
+if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -U campus_events -d campus_events -tAc "SELECT to_regclass('public.users') IS NOT NULL" | grep -q t; then
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    pg_dump -U campus_events -d campus_events -Fc > "/var/backups/campus-events/predeploy-$(date +%Y%m%d%H%M%S).dump"
+fi
+
+DATABASE_URL="$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name DATABASE-URL --query value -o tsv)"
+export DATABASE_URL
+docker compose -f "$COMPOSE_FILE" run --rm -e DATABASE_URL api npx prisma migrate deploy
+unset DATABASE_URL
+docker compose -f "$COMPOSE_FILE" up -d --no-build api
+curl --fail --retry 12 --retry-delay 5 http://127.0.0.1:5000/events-api/v1/health
+
+sudo install -m 644 systemd/campus-event.service /etc/systemd/system/campus-event.service
+sudo systemctl daemon-reload
+sudo systemctl enable campus-event.service

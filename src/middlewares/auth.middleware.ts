@@ -5,6 +5,7 @@ import { Role } from '@prisma/client';
 import prisma from '../config/prisma';
 import { AppError } from './error.middleware';
 import config from '../config/env';
+import { createEntraVerification } from '../config/entra';
 import { AuthUser, DecodedAdToken } from '../types/auth.types';
 export { AuthUser };
 
@@ -17,9 +18,21 @@ declare global {
 }
 
 // JWKS Client for Microsoft Entra ID (Azure AD) public keys
-const tenantId = config.azureAd.tenantId || 'common';
+function getEntraVerification() {
+  if (config.azureAd.tenantId && config.azureAd.audience) {
+    return createEntraVerification(config.azureAd.tenantId, config.azureAd.audience);
+  }
+
+  if (config.nodeEnv === 'development') {
+    return createEntraVerification('common', 'development');
+  }
+
+  throw new Error('AZURE_AD_TENANT_ID and AZURE_AD_AUDIENCE are required for Entra verification.');
+}
+
+const entraVerification = getEntraVerification();
 const jwks = jwksClient({
-  jwksUri: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
+  jwksUri: entraVerification.jwksUri,
   cache: true,
   rateLimit: true,
   jwksRequestsPerMinute: 10,
@@ -97,8 +110,9 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
             token,
             getAzureSigningKey,
             {
-              algorithms: ['RS256'],
-              audience: config.azureAd.audience,
+              algorithms: [...entraVerification.algorithms],
+              audience: entraVerification.audience,
+              issuer: entraVerification.issuer,
             },
             (err, decoded) => {
               if (err) return reject(err);

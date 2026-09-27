@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: "on-failure:5"
+    environment:
+      POSTGRES_USER: campus_events
+      POSTGRES_DB: campus_events
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campus_events -d campus_events"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [campus_network]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: campus-event-api:current
+    restart: "on-failure:5"
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      KEY_VAULT_NAME: ${KEY_VAULT_NAME:?KEY_VAULT_NAME is required}
+      AZURE_AD_CLIENT_ID: ${AZURE_AD_CLIENT_ID:?AZURE_AD_CLIENT_ID is required}
+      AZURE_AD_TENANT_ID: ${AZURE_AD_TENANT_ID:?AZURE_AD_TENANT_ID is required}
+      AZURE_AD_AUDIENCE: ${AZURE_AD_AUDIENCE:?AZURE_AD_AUDIENCE is required}
+      CAMPUS_LATITUDE: ${CAMPUS_LATITUDE:-13.7563}
+      CAMPUS_LONGITUDE: ${CAMPUS_LONGITUDE:-100.5018}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [campus_network]
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_FILE:?POSTGRES_PASSWORD_FILE is required}
+
+volumes:
+  postgres_data:
+
+networks:
+  campus_network:
+    driver: bridge
