@@ -200,4 +200,4 @@ On the Member 3 local branch, `npm run build` and `npm run test:verify` passed a
 
 ## Team ownership
 
-See `COLLABORATION_SPEC.md`. Member 1 owns identity/infrastructure; Member 2 owns schema/events/bookings; Member 3 (Lwin Htoo Aung) owns peer middleware/routes/controller/types, the external service, Postman, and this README. The only shared bootstrap change is importing/mounting the peer router. Work remains on `feature/member3-integrations-docs` until reviewed for `develop`.
+See `COLLABORATION_SPEC.md`. Member 1 owns identity/infrastructure; Member 2 owns schema/events/bookings; Member 3 owns peer middleware/routes/controller/types, the external service, Postman, and this README. The only shared bootstrap change is importing/mounting the peer router. Work remains on `feature/member3-integrations-docs` until reviewed for `develop`.
